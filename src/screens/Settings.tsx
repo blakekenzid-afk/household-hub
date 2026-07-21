@@ -14,7 +14,11 @@ export default function Settings() {
   const [theme, setTheme] = useState<Theme>(currentTheme)
   const [message, setMessage] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
-  const itemCount = useLiveQuery(() => db.brainDump.count(), [], 0)
+  const itemCount = useLiveQuery(
+    async () => (await db.brainDump.count()) + (await db.tasks.count()),
+    [],
+    0,
+  )
 
   function applyTheme(t: Theme) {
     setTheme(t)
@@ -118,7 +122,7 @@ export default function Settings() {
 
       <div className="section-label">About</div>
       <div className="card">
-        <div className="tile-sub">Household Hub · Phase 1 · v0.1.0</div>
+        <div className="tile-sub">Household Hub · Phase 2 · v0.2.0</div>
       </div>
     </>
   )

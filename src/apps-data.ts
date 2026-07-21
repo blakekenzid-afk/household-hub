@@ -36,8 +36,7 @@ export const APPS: AppDef[] = [
     subtitle: 'To-dos, chores & due dates',
     icon: SquareCheckBig,
     color: '#2563EB',
-    phase: 'Phase 2',
-    soon: 'A real to-do system: due dates, priorities, recurring chores, and a Today view. Brain dump items will move here with one tap.',
+    route: '/apps/tasks',
   },
   {
     id: 'notes',
