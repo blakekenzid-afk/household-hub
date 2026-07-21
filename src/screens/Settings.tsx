@@ -19,7 +19,10 @@ export default function Settings() {
       (await db.brainDump.count()) +
       (await db.tasks.count()) +
       (await db.notes.count()) +
-      (await db.folders.count()),
+      (await db.folders.count()) +
+      (await db.recipes.count()) +
+      (await db.mealPlan.count()) +
+      (await db.shopping.count()),
     [],
     0,
   )
@@ -126,7 +129,7 @@ export default function Settings() {
 
       <div className="section-label">About</div>
       <div className="card">
-        <div className="tile-sub">Household Hub · Phase 3 · v0.3.0</div>
+        <div className="tile-sub">Household Hub · Phase 4 · v0.4.0</div>
       </div>
     </>
   )

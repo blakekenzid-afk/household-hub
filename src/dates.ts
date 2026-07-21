@@ -54,6 +54,32 @@ export function dueLabel(dateStr: string): DueLabel {
   }
 }
 
+/** Sunday of the current week, shifted by offsetWeeks */
+export function weekStart(offsetWeeks = 0): string {
+  const d = new Date()
+  d.setDate(d.getDate() - d.getDay() + offsetWeeks * 7)
+  return toStr(d)
+}
+
+/** The 7 dates of the week beginning at startStr */
+export function weekDates(startStr: string): string[] {
+  return Array.from({ length: 7 }, (_, i) => addDays(startStr, i))
+}
+
+export function weekLabel(startStr: string): string {
+  const start = parse(startStr)
+  const end = parse(addDays(startStr, 6))
+  const startLabel = start.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })
+  const endLabel =
+    start.getMonth() === end.getMonth()
+      ? end.toLocaleDateString(undefined, { day: 'numeric' })
+      : end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return `${startLabel} – ${endLabel}`
+}
+
 function nextOnce(dateStr: string, repeat: Task['repeat']): string {
   switch (repeat) {
     case 'daily':

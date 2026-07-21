@@ -27,6 +27,23 @@ export default function Today() {
       .sort((a, b) => (a.dueDate! < b.dueDate! ? -1 : 1))
   }, [])
 
+  const dinner = useLiveQuery(async () => {
+    const entries = await db.mealPlan.where('date').equals(todayStr()).toArray()
+    const withNames = await Promise.all(
+      entries.map(async (e) => ({
+        slot: e.slot,
+        label:
+          e.text ??
+          (e.recipeId !== undefined
+            ? (await db.recipes.get(e.recipeId))?.name
+            : undefined) ??
+          '…',
+      })),
+    )
+    const order = { breakfast: 0, lunch: 1, dinner: 2 }
+    return withNames.sort((a, b) => order[a.slot] - order[b.slot])
+  }, [])
+
   const hour = new Date().getHours()
   const greeting =
     hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -109,16 +126,31 @@ export default function Today() {
         )}
       </div>
 
-      <div className="section-label">Coming up</div>
-      <div className="card muted">
+      <div className="section-label">Today’s meals</div>
+      <div
+        className="card tappable"
+        role="button"
+        tabIndex={0}
+        onClick={() => navigate('/apps/meals')}
+        onKeyDown={(e) => e.key === 'Enter' && navigate('/apps/meals')}
+      >
         <div className="card-row">
           <div className="tile-icon" style={{ '--tile-color': '#16A34A' } as React.CSSProperties}>
             <ChefHat aria-hidden />
           </div>
           <div className="card-row-text">
-            <div className="tile-name">Tonight’s dinner</div>
-            <div className="tile-sub">Your meal plan will show up here — Phase 4.</div>
+            <div className="tile-name">Meals</div>
+            <div className="tile-sub">
+              {dinner === undefined
+                ? ' '
+                : dinner.length === 0
+                  ? 'Nothing planned today — tap to plan.'
+                  : dinner
+                      .map((d) => `${d.slot === 'dinner' ? 'Dinner' : d.slot === 'lunch' ? 'Lunch' : 'Breakfast'}: ${d.label}`)
+                      .join(' · ')}
+            </div>
           </div>
+          <ChevronRight className="chevron" aria-hidden />
         </div>
       </div>
 

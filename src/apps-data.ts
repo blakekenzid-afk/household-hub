@@ -52,8 +52,7 @@ export const APPS: AppDef[] = [
     subtitle: 'Recipe box & weekly planner',
     icon: ChefHat,
     color: '#16A34A',
-    phase: 'Phase 4',
-    soon: 'A recipe box plus a weekly planner grid. One tap adds the week’s ingredients to your shopping list.',
+    route: '/apps/meals',
   },
   {
     id: 'shopping',
@@ -61,8 +60,7 @@ export const APPS: AppDef[] = [
     subtitle: 'Grocery & shopping lists',
     icon: ShoppingCart,
     color: '#EA580C',
-    phase: 'Phase 4',
-    soon: 'Grocery and general lists that receive items from the meal planner and brain dump.',
+    route: '/apps/shopping',
   },
   {
     id: 'calendar',

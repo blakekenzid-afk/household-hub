@@ -158,6 +158,7 @@ export default function BrainDump() {
           onClose={() => setEditing(null)}
           onMoveToTask={setNewTaskId}
           onMoveToNote={(noteId) => navigate(`/apps/notes/${noteId}`)}
+          onMoveToRecipe={(recipeId) => navigate(`/apps/meals/recipes/${recipeId}`)}
         />
       )}
       {newTaskId !== null && newTask && (

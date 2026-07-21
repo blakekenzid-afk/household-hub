@@ -8,6 +8,9 @@ import BrainDump from './screens/BrainDump'
 import Tasks from './screens/Tasks'
 import Notes from './screens/Notes'
 import NoteEditor from './screens/NoteEditor'
+import Meals from './screens/Meals'
+import RecipeEditor from './screens/RecipeEditor'
+import Shopping from './screens/Shopping'
 import ComingSoon from './screens/ComingSoon'
 import Settings from './screens/Settings'
 import './styles.css'
@@ -29,6 +32,9 @@ const router = createHashRouter([
       { path: 'apps/tasks', element: <Tasks /> },
       { path: 'apps/notes', element: <Notes /> },
       { path: 'apps/notes/:noteId', element: <NoteEditor /> },
+      { path: 'apps/meals', element: <Meals /> },
+      { path: 'apps/meals/recipes/:recipeId', element: <RecipeEditor /> },
+      { path: 'apps/shopping', element: <Shopping /> },
       { path: 'apps/soon/:appId', element: <ComingSoon /> },
       { path: 'settings', element: <Settings /> },
     ],

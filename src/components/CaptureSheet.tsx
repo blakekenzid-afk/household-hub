@@ -14,6 +14,8 @@ import {
   db,
   moveDumpToListItem,
   moveDumpToNote,
+  moveDumpToRecipe,
+  moveDumpToShopping,
   moveDumpToTask,
   type BrainDumpItem,
 } from '../db'
@@ -23,11 +25,10 @@ interface Props {
   onClose: () => void
   onMoveToTask?: (taskId: number) => void
   onMoveToNote?: (noteId: number) => void
+  onMoveToRecipe?: (recipeId: number) => void
 }
 
 const FUTURE_TARGETS = [
-  { icon: ShoppingCart, label: 'Shopping', phase: 'Phase 4', color: '#EA580C' },
-  { icon: ChefHat, label: 'Recipe', phase: 'Phase 4', color: '#16A34A' },
   { icon: Calendar, label: 'Event', phase: 'Later', color: '#DC2626' },
 ]
 
@@ -36,6 +37,7 @@ export default function CaptureSheet({
   onClose,
   onMoveToTask,
   onMoveToNote,
+  onMoveToRecipe,
 }: Props) {
   const [text, setText] = useState(item?.text ?? '')
   const [view, setView] = useState<'main' | 'pick-list'>('main')
@@ -91,6 +93,19 @@ export default function CaptureSheet({
     if (!item || !text.trim()) return
     await moveDumpToListItem(item.id, text.trim(), checklistId)
     onClose()
+  }
+
+  async function moveToShopping() {
+    if (!item || !text.trim()) return
+    await moveDumpToShopping(item.id, text.trim())
+    onClose()
+  }
+
+  async function moveToRecipe() {
+    if (!item || !text.trim()) return
+    const recipeId = await moveDumpToRecipe(item.id, text.trim())
+    onClose()
+    onMoveToRecipe?.(recipeId)
   }
 
   async function moveToNewList() {
@@ -205,6 +220,24 @@ export default function CaptureSheet({
             >
               <ListChecks aria-hidden />
               List item
+            </button>
+            <button
+              className="move-btn"
+              style={{ '--tile-color': '#EA580C' } as React.CSSProperties}
+              disabled={!text.trim()}
+              onClick={() => void moveToShopping()}
+            >
+              <ShoppingCart aria-hidden />
+              Shopping
+            </button>
+            <button
+              className="move-btn"
+              style={{ '--tile-color': '#16A34A' } as React.CSSProperties}
+              disabled={!text.trim()}
+              onClick={() => void moveToRecipe()}
+            >
+              <ChefHat aria-hidden />
+              Recipe
             </button>
             {FUTURE_TARGETS.map((t) => {
               const Icon = t.icon
