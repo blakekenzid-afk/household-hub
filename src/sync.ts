@@ -219,16 +219,37 @@ async function pullOnce(): Promise<void> {
         const table = db.table(tbl)
         for (const rec of latest.values()) {
           if (rec.tbl !== tbl) continue
+          const key = outboxKey(tbl, rec.uuid)
           const local = (await table.where('uuid').equals(rec.uuid).first()) as
             | SyncRow
             | undefined
+          const pendingDeleteAt = (await db.outbox.get(key))?.deletedAt
+
           if (rec.deleted) {
-            if (local?.id != null && rec.updated_at >= (local.updatedAt ?? 0)) {
-              await table.delete(local.id)
-              await db.outbox.delete(outboxKey(tbl, rec.uuid))
+            const localWins = local != null && (local.updatedAt ?? 0) > rec.updated_at
+            if (!localWins) {
+              if (local?.id != null) await table.delete(local.id)
+              // keep our own tombstone only if it's newer than the
+              // remote one and still needs to push
+              if (!(pendingDeleteAt != null && pendingDeleteAt > rec.updated_at)) {
+                await db.outbox.delete(key)
+              }
             }
             continue
           }
+
+          if (pendingDeleteAt != null) {
+            if (pendingDeleteAt >= rec.updated_at) {
+              // This record was deleted locally after the remote version
+              // was written — the tombstone wins and will push. Without
+              // this check, a record's own push echo would resurrect it.
+              if (local?.id != null) await table.delete(local.id)
+              continue
+            }
+            // remote version is newer than the local deletion: undelete
+            await db.outbox.delete(key)
+          }
+
           if (!local) {
             await table.add({
               ...(await fromPayload(tbl, rec.data)),
@@ -244,7 +265,7 @@ async function pullOnce(): Promise<void> {
               uuid: rec.uuid,
               updatedAt: rec.updated_at,
             })
-            await db.outbox.delete(outboxKey(tbl, rec.uuid))
+            await db.outbox.delete(key)
           }
         }
       }
@@ -274,7 +295,22 @@ async function pushOnce(): Promise<void> {
     const local = (await db.table(e.tbl).where('uuid').equals(e.uuid).first()) as
       | SyncRow
       | undefined
-    if (local) {
+    const deletedAt = e.deletedAt
+    if (deletedAt != null && (local == null || deletedAt >= (local.updatedAt ?? 0))) {
+      // The deletion is the newest thing that happened to this record.
+      rows.push({ tbl: e.tbl, uuid: e.uuid, data: {}, updated_at: deletedAt, deleted: true })
+      pushed.set(e.key, Infinity)
+      if (local?.id != null) {
+        // a pull echo resurrected the record after it was deleted; the
+        // tombstone is newer, so the stale copy goes
+        syncFlags.applying = true
+        try {
+          await db.table(e.tbl).delete(local.id)
+        } finally {
+          syncFlags.applying = false
+        }
+      }
+    } else if (local) {
       const updatedAt = local.updatedAt ?? Date.now()
       rows.push({
         tbl: e.tbl,
@@ -284,9 +320,6 @@ async function pushOnce(): Promise<void> {
         deleted: false,
       })
       pushed.set(e.key, updatedAt)
-    } else if (e.deletedAt) {
-      rows.push({ tbl: e.tbl, uuid: e.uuid, data: {}, updated_at: e.deletedAt, deleted: true })
-      pushed.set(e.key, Infinity)
     } else {
       pushed.set(e.key, Infinity)
     }
@@ -308,7 +341,7 @@ async function pushOnce(): Promise<void> {
       }
       const entry = await db.outbox.get(key)
       if (!entry) continue
-      if (entry.deletedAt) continue // deleted after we pushed; keep tombstone
+      if (entry.deletedAt != null && entry.deletedAt > ts) continue // deleted after we pushed; keep tombstone
       const row = (await db.table(entry.tbl).where('uuid').equals(entry.uuid).first()) as
         | SyncRow
         | undefined
