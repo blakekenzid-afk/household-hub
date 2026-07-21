@@ -6,6 +6,8 @@ import Today from './screens/Today'
 import Apps from './screens/Apps'
 import BrainDump from './screens/BrainDump'
 import Tasks from './screens/Tasks'
+import Notes from './screens/Notes'
+import NoteEditor from './screens/NoteEditor'
 import ComingSoon from './screens/ComingSoon'
 import Settings from './screens/Settings'
 import './styles.css'
@@ -25,6 +27,8 @@ const router = createHashRouter([
       { path: 'apps', element: <Apps /> },
       { path: 'apps/brain-dump', element: <BrainDump /> },
       { path: 'apps/tasks', element: <Tasks /> },
+      { path: 'apps/notes', element: <Notes /> },
+      { path: 'apps/notes/:noteId', element: <NoteEditor /> },
       { path: 'apps/soon/:appId', element: <ComingSoon /> },
       { path: 'settings', element: <Settings /> },
     ],

@@ -920,3 +920,269 @@ button {
   font-weight: 600;
   margin-right: 8px;
 }
+
+/* ============ Phase 3: Notes & Lists ============ */
+.search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--separator);
+  border-radius: 999px;
+  padding: 0 16px;
+  margin-top: 18px;
+}
+
+.search-wrap svg {
+  width: 17px;
+  height: 17px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 12px 0;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--text);
+  min-width: 0;
+}
+
+.create-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.create-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 13px;
+  border: 1px solid var(--separator);
+  background: var(--card);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.create-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.create-btn:active {
+  transform: scale(0.98);
+}
+
+.note-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+@media (min-width: 560px) {
+  .note-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.note-card {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  color: var(--text);
+  min-height: 110px;
+}
+
+.note-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.note-type-icon {
+  width: 16px;
+  height: 16px;
+  color: #d97706;
+}
+
+.pin-ind {
+  width: 14px;
+  height: 14px;
+  color: var(--accent);
+  fill: currentColor;
+}
+
+.note-title {
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.note-snippet {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.note-meta {
+  font-size: 11.5px;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.note-folder {
+  background: var(--field-bg);
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+/* Editor */
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.back-link.as-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.editor-actions .icon-btn {
+  width: 34px;
+  height: 34px;
+}
+
+.editor-actions .icon-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.icon-btn.accent {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.icon-btn.subtle {
+  background: transparent;
+}
+
+.editor-folder-tag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--field-bg);
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+}
+
+.editor-title {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  padding: 4px 0 10px;
+}
+
+.editor-title::placeholder {
+  color: var(--text-3);
+}
+
+.editor-body {
+  width: 100%;
+  min-height: 50vh;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text);
+  field-sizing: content;
+}
+
+.editor-body::placeholder {
+  color: var(--text-3);
+}
+
+/* Checklist editor */
+.cl-list {
+  margin-top: 4px;
+}
+
+.cl-item,
+.cl-add {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.cl-text {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--text);
+  min-width: 0;
+}
+
+.cl-text.done {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.cl-add-ring {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px dashed var(--text-3);
+  flex-shrink: 0;
+  opacity: 0.5;
+}

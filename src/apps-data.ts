@@ -44,8 +44,7 @@ export const APPS: AppDef[] = [
     subtitle: 'Notebooks, checklists & more',
     icon: NotebookPen,
     color: '#D97706',
-    phase: 'Phase 3',
-    soon: 'Folders, pinned notes, and checklists as their own type — with search across everything.',
+    route: '/apps/notes',
   },
   {
     id: 'meals',

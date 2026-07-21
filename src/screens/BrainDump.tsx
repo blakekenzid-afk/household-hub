@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Brain, ChevronLeft, Plus } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type BrainDumpItem } from '../db'
@@ -17,6 +17,7 @@ const SORTED_LABELS: Record<string, string> = {
 }
 
 export default function BrainDump() {
+  const navigate = useNavigate()
   const [view, setView] = useState<'inbox' | 'sorted'>('inbox')
   const [editing, setEditing] = useState<BrainDumpItem | null>(null)
   const [newTaskId, setNewTaskId] = useState<number | null>(null)
@@ -156,6 +157,7 @@ export default function BrainDump() {
           item={editing}
           onClose={() => setEditing(null)}
           onMoveToTask={setNewTaskId}
+          onMoveToNote={(noteId) => navigate(`/apps/notes/${noteId}`)}
         />
       )}
       {newTaskId !== null && newTask && (
