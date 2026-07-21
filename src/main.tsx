@@ -14,6 +14,9 @@ import Shopping from './screens/Shopping'
 import ComingSoon from './screens/ComingSoon'
 import Settings from './screens/Settings'
 import './styles.css'
+// Registers the sync change-tracking hooks before any screen touches the
+// database, and wires up the background sync triggers.
+import './sync'
 
 // Apply saved theme before first paint to avoid a flash
 const savedTheme = localStorage.getItem('hh-theme')

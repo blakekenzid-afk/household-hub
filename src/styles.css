@@ -1337,3 +1337,26 @@ button {
 .task-body.no-tap {
   cursor: default;
 }
+
+/* ============ Phase 5: Sync ============ */
+.sync-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.sync-btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.sync-btn-row .btn {
+  flex: 1;
+}
+
+.row.danger,
+.row.danger svg {
+  color: var(--danger);
+}

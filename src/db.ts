@@ -1,10 +1,18 @@
-import Dexie, { type EntityTable } from 'dexie'
+import Dexie, { type EntityTable, type Table } from 'dexie'
 import { nextOccurrence } from './dates'
+
+// Every record carries a device-independent sync identity (uuid) and a
+// last-modified timestamp (updatedAt, ms epoch) used for last-write-wins
+// merging. Both are optional in the types because rows created before
+// schema v5 lacked them; the v5 upgrade backfills and the sync hooks fill
+// them on every new write, so they are always present at runtime.
 
 export interface BrainDumpItem {
   id: number
+  uuid?: string
   text: string
   createdAt: number
+  updatedAt?: number
   status: 'inbox' | 'sorted'
   // Set when an item is triaged into another app
   sortedTo?: 'task' | 'note' | 'list-item' | 'shopping' | 'recipe' | 'event'
@@ -12,6 +20,8 @@ export interface BrainDumpItem {
 
 export interface Task {
   id: number
+  uuid?: string
+  updatedAt?: number
   title: string
   notes?: string
   status: 'open' | 'done'
@@ -30,6 +40,7 @@ export interface ChecklistItem {
 
 export interface Note {
   id: number
+  uuid?: string
   type: 'note' | 'checklist'
   title: string
   body?: string
@@ -42,12 +53,15 @@ export interface Note {
 
 export interface Folder {
   id: number
+  uuid?: string
   name: string
   createdAt: number
+  updatedAt?: number
 }
 
 export interface Recipe {
   id: number
+  uuid?: string
   name: string
   ingredients: string[]
   steps?: string
@@ -57,19 +71,37 @@ export interface Recipe {
 
 export interface MealPlanEntry {
   id: number
+  uuid?: string
   date: string // YYYY-MM-DD, local
   slot: 'breakfast' | 'lunch' | 'dinner'
   recipeId?: number
   text?: string
   createdAt: number
+  updatedAt?: number
 }
 
 export interface ShoppingItem {
   id: number
+  uuid?: string
   text: string
   checked: boolean
   source?: string // recipe name it came from, when added via the planner
   createdAt: number
+  updatedAt?: number
+}
+
+/** A local change waiting to be pushed to sync. key = `${tbl}|${uuid}`. */
+export interface OutboxEntry {
+  key: string
+  tbl: string
+  uuid: string
+  // Set when the record was deleted locally; pushed as a tombstone.
+  deletedAt?: number
+}
+
+export interface MetaEntry {
+  key: string
+  value: number
 }
 
 export const db = new Dexie('household-hub') as Dexie & {
@@ -80,7 +112,30 @@ export const db = new Dexie('household-hub') as Dexie & {
   recipes: EntityTable<Recipe, 'id'>
   mealPlan: EntityTable<MealPlanEntry, 'id'>
   shopping: EntityTable<ShoppingItem, 'id'>
+  outbox: Table<OutboxEntry, string>
+  meta: Table<MetaEntry, string>
 }
+
+/**
+ * True while sync (or a schema upgrade) is writing remote state into the
+ * local database. The sync hooks check this so those writes aren't
+ * re-tracked as fresh local edits.
+ */
+export const syncFlags = { applying: false }
+
+export const SYNC_TABLE_NAMES = [
+  // folders and recipes first: notes and meal plan entries pulled in the
+  // same sync batch reference them by uuid
+  'folders',
+  'recipes',
+  'brainDump',
+  'tasks',
+  'notes',
+  'mealPlan',
+  'shopping',
+] as const
+
+export type SyncTableName = (typeof SYNC_TABLE_NAMES)[number]
 
 db.version(1).stores({
   brainDump: '++id, status, createdAt',
@@ -107,6 +162,37 @@ db.version(4).stores({
   mealPlan: '++id, date, slot',
   shopping: '++id, createdAt',
 })
+
+// v5: sync support — unique uuid on every record, plus the outbox
+// (changes waiting to push) and meta (sync cursors) tables.
+db.version(5)
+  .stores({
+    brainDump: '++id, status, createdAt, &uuid',
+    tasks: '++id, status, dueDate, createdAt, &uuid',
+    notes: '++id, type, folderId, pinned, updatedAt, &uuid',
+    folders: '++id, name, &uuid',
+    recipes: '++id, name, updatedAt, &uuid',
+    mealPlan: '++id, date, slot, &uuid',
+    shopping: '++id, createdAt, &uuid',
+    outbox: 'key',
+    meta: 'key',
+  })
+  .upgrade(async (tx) => {
+    syncFlags.applying = true
+    try {
+      for (const name of SYNC_TABLE_NAMES) {
+        await tx
+          .table(name)
+          .toCollection()
+          .modify((row: { uuid?: string; updatedAt?: number; createdAt?: number }) => {
+            if (!row.uuid) row.uuid = crypto.randomUUID()
+            if (row.updatedAt == null) row.updatedAt = row.createdAt ?? Date.now()
+          })
+      }
+    } finally {
+      syncFlags.applying = false
+    }
+  })
 
 /** Complete/uncomplete a task. Completing a repeating task spawns the next occurrence. */
 export async function toggleTask(task: Task): Promise<void> {
@@ -255,7 +341,7 @@ export interface BackupFile {
 export async function exportBackup(): Promise<BackupFile> {
   return {
     app: 'household-hub',
-    version: 4,
+    version: 5,
     exportedAt: new Date().toISOString(),
     brainDump: await db.brainDump.toArray(),
     tasks: await db.tasks.toArray(),
@@ -279,21 +365,60 @@ export async function importBackup(data: BackupFile): Promise<void> {
     db.recipes,
     db.mealPlan,
     db.shopping,
+    db.outbox,
+    db.meta,
   ]
-  await db.transaction('rw', tables, async () => {
-    await db.brainDump.clear()
-    await db.brainDump.bulkAdd(data.brainDump)
-    await db.tasks.clear()
-    if (Array.isArray(data.tasks)) await db.tasks.bulkAdd(data.tasks)
-    await db.notes.clear()
-    if (Array.isArray(data.notes)) await db.notes.bulkAdd(data.notes)
-    await db.folders.clear()
-    if (Array.isArray(data.folders)) await db.folders.bulkAdd(data.folders)
-    await db.recipes.clear()
-    if (Array.isArray(data.recipes)) await db.recipes.bulkAdd(data.recipes)
-    await db.mealPlan.clear()
-    if (Array.isArray(data.mealPlan)) await db.mealPlan.bulkAdd(data.mealPlan)
-    await db.shopping.clear()
-    if (Array.isArray(data.shopping)) await db.shopping.bulkAdd(data.shopping)
-  })
+  syncFlags.applying = true
+  try {
+    await db.transaction('rw', tables, async () => {
+      await db.brainDump.clear()
+      await db.brainDump.bulkAdd(data.brainDump)
+      await db.tasks.clear()
+      if (Array.isArray(data.tasks)) await db.tasks.bulkAdd(data.tasks)
+      await db.notes.clear()
+      if (Array.isArray(data.notes)) await db.notes.bulkAdd(data.notes)
+      await db.folders.clear()
+      if (Array.isArray(data.folders)) await db.folders.bulkAdd(data.folders)
+      await db.recipes.clear()
+      if (Array.isArray(data.recipes)) await db.recipes.bulkAdd(data.recipes)
+      await db.mealPlan.clear()
+      if (Array.isArray(data.mealPlan)) await db.mealPlan.bulkAdd(data.mealPlan)
+      await db.shopping.clear()
+      if (Array.isArray(data.shopping)) await db.shopping.bulkAdd(data.shopping)
+      // The import replaced local state wholesale, so sync bookkeeping
+      // must start over: forget cursors and re-merge everything on the
+      // next sync.
+      await db.outbox.clear()
+      await db.meta.clear()
+    })
+  } finally {
+    syncFlags.applying = false
+  }
+}
+
+/**
+ * Wipe everything stored on this device, including sync bookkeeping.
+ * Runs with syncFlags.applying set so nothing is pushed as a deletion —
+ * this resets the device, it does not delete synced data.
+ */
+export async function eraseAllLocalData(): Promise<void> {
+  const tables = [
+    db.brainDump,
+    db.tasks,
+    db.notes,
+    db.folders,
+    db.recipes,
+    db.mealPlan,
+    db.shopping,
+    db.outbox,
+    db.meta,
+  ]
+  syncFlags.applying = true
+  try {
+    await db.transaction('rw', tables, async () => {
+      for (const t of tables) await t.clear()
+    })
+  } finally {
+    syncFlags.applying = false
+  }
 }

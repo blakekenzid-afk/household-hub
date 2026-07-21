@@ -1,13 +1,162 @@
-import { useRef, useState } from 'react'
-import { CloudOff, Download, Upload } from 'lucide-react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { Cloud, CloudOff, Download, Trash2, Upload } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, exportBackup, importBackup, type BackupFile } from '../db'
+import type { Session } from '@supabase/supabase-js'
+import {
+  db,
+  eraseAllLocalData,
+  exportBackup,
+  importBackup,
+  type BackupFile,
+} from '../db'
+import { supabase } from '../supabase'
+import { getSyncStatus, subscribeSyncStatus, syncNow } from '../sync'
 
 type Theme = 'system' | 'light' | 'dark'
 
 function currentTheme(): Theme {
   const t = localStorage.getItem('hh-theme')
   return t === 'light' || t === 'dark' ? t : 'system'
+}
+
+function formatWhen(ts: number): string {
+  const d = new Date(ts)
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
+function SyncSection() {
+  const [session, setSession] = useState<Session | null>(null)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [authMsg, setAuthMsg] = useState('')
+  const status = useSyncExternalStore(subscribeSyncStatus, getSyncStatus)
+  const pending = useLiveQuery(() => db.outbox.count(), [], 0)
+  const lastSyncAt = useLiveQuery(() => db.meta.get('lastSyncAt'), [])?.value
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
+    return () => sub.subscription.unsubscribe()
+  }, [])
+
+  async function handleSignIn(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setAuthMsg('')
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    setBusy(false)
+    if (error) {
+      setAuthMsg(error.message)
+    } else {
+      setEmail('')
+      setPassword('')
+    }
+  }
+
+  async function handleSignUp() {
+    if (!email || !password) {
+      setAuthMsg('Enter an email and a password (8+ characters) first.')
+      return
+    }
+    setBusy(true)
+    setAuthMsg('')
+    const { data, error } = await supabase.auth.signUp({ email, password })
+    setBusy(false)
+    if (error) {
+      setAuthMsg(error.message)
+    } else if (!data.session) {
+      setAuthMsg('Account created — check your email for a confirmation link, then sign in here.')
+    }
+  }
+
+  if (!session) {
+    return (
+      <div className="card">
+        <div className="card-row">
+          <CloudOff className="sync-icon" aria-hidden />
+          <div className="card-row-text">
+            <div className="tile-name">Sync is off</div>
+            <div className="tile-sub">
+              Sign in to back up your data and keep your phone and computer up
+              to date. First time? Create an account with any email and
+              password.
+            </div>
+          </div>
+        </div>
+        <form className="sync-form" onSubmit={(e) => void handleSignIn(e)}>
+          <input
+            className="sheet-input"
+            type="email"
+            placeholder="Email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            className="sheet-input"
+            type="password"
+            placeholder="Password"
+            autoComplete="current-password"
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <div className="sync-btn-row">
+            <button className="btn" type="submit" disabled={busy}>
+              Sign in
+            </button>
+            <button
+              className="btn secondary"
+              type="button"
+              disabled={busy}
+              onClick={() => void handleSignUp()}
+            >
+              Create account
+            </button>
+          </div>
+        </form>
+        {authMsg && <p className="settings-message">{authMsg}</p>}
+      </div>
+    )
+  }
+
+  const statusLine =
+    status.state === 'syncing'
+      ? 'Syncing…'
+      : status.state === 'error'
+        ? `Sync error: ${status.error}`
+        : lastSyncAt
+          ? `Last synced ${formatWhen(lastSyncAt)}${pending ? ` · ${pending} pending` : ''}`
+          : 'Not synced yet'
+
+  return (
+    <div className="card">
+      <div className="card-row">
+        <Cloud className="sync-icon" aria-hidden />
+        <div className="card-row-text">
+          <div className="tile-name">{session.user.email}</div>
+          <div className="tile-sub">{statusLine}</div>
+        </div>
+      </div>
+      <div className="sync-btn-row">
+        <button
+          className="btn"
+          disabled={status.state === 'syncing'}
+          onClick={() => void syncNow()}
+        >
+          Sync now
+        </button>
+        <button className="btn secondary" onClick={() => void supabase.auth.signOut()}>
+          Sign out
+        </button>
+      </div>
+    </div>
+  )
 }
 
 export default function Settings() {
@@ -64,9 +213,23 @@ export default function Settings() {
       }
       await importBackup(data)
       setMessage('Backup restored.')
+      void syncNow()
     } catch {
       setMessage("That file isn't a Household Hub backup.")
     }
+  }
+
+  async function handleErase() {
+    if (
+      !window.confirm(
+        "Erase everything stored on this device? If you're signed in, your synced data will download again. Otherwise this cannot be undone.",
+      )
+    ) {
+      return
+    }
+    await eraseAllLocalData()
+    setMessage('Local data erased.')
+    void syncNow()
   }
 
   return (
@@ -87,6 +250,9 @@ export default function Settings() {
         ))}
       </div>
 
+      <div className="section-label">Sync</div>
+      <SyncSection />
+
       <div className="section-label">Your data</div>
       <div className="row-group">
         <button className="row" onClick={() => void handleExport()}>
@@ -97,6 +263,10 @@ export default function Settings() {
         <button className="row" onClick={() => fileRef.current?.click()}>
           <Upload aria-hidden />
           Import backup
+        </button>
+        <button className="row danger" onClick={() => void handleErase()}>
+          <Trash2 aria-hidden />
+          Erase local data
         </button>
       </div>
       <input
@@ -112,24 +282,9 @@ export default function Settings() {
       />
       {message && <p className="settings-message">{message}</p>}
 
-      <div className="section-label">Sync</div>
-      <div className="card">
-        <div className="card-row">
-          <CloudOff className="sync-icon" aria-hidden />
-          <div className="card-row-text">
-            <div className="tile-name">Local-only for now</div>
-            <div className="tile-sub">
-              Everything is stored privately on this device. Cross-device sync
-              arrives in a later phase — until then, use Export/Import to move
-              your data between devices.
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="section-label">About</div>
       <div className="card">
-        <div className="tile-sub">Household Hub · Phase 4 · v0.4.0</div>
+        <div className="tile-sub">Household Hub · Phase 5 · v0.5.0</div>
       </div>
     </>
   )
