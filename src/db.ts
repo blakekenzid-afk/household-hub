@@ -105,6 +105,29 @@ export interface CalendarEvent {
   createdAt: number
 }
 
+export interface Transaction {
+  id: number
+  uuid?: string
+  updatedAt?: number
+  type: 'income' | 'expense'
+  amount: number // integer cents, always positive
+  category: string
+  note?: string
+  date: string // YYYY-MM-DD, local
+  createdAt: number
+}
+
+export interface InventoryItem {
+  id: number
+  uuid?: string
+  updatedAt?: number
+  name: string
+  room: string
+  quantity?: number
+  notes?: string
+  createdAt: number
+}
+
 /** A local change waiting to be pushed to sync. key = `${tbl}|${uuid}`. */
 export interface OutboxEntry {
   key: string
@@ -128,6 +151,8 @@ export const db = new Dexie('household-hub') as Dexie & {
   mealPlan: EntityTable<MealPlanEntry, 'id'>
   shopping: EntityTable<ShoppingItem, 'id'>
   events: EntityTable<CalendarEvent, 'id'>
+  transactions: EntityTable<Transaction, 'id'>
+  inventory: EntityTable<InventoryItem, 'id'>
   outbox: Table<OutboxEntry, string>
   meta: Table<MetaEntry, string>
 }
@@ -150,6 +175,8 @@ export const SYNC_TABLE_NAMES = [
   'mealPlan',
   'shopping',
   'events',
+  'transactions',
+  'inventory',
 ] as const
 
 export type SyncTableName = (typeof SYNC_TABLE_NAMES)[number]
@@ -233,6 +260,37 @@ db.version(6).stores({
   mealPlan: '++id, date, slot, &uuid',
   shopping: '++id, createdAt, &uuid',
   events: '++id, date, &uuid',
+  outbox: 'key',
+  meta: 'key',
+})
+
+// v7: Finance — transactions (income/expense, integer cents, categorized).
+db.version(7).stores({
+  brainDump: '++id, status, createdAt, &uuid',
+  tasks: '++id, status, dueDate, createdAt, &uuid',
+  notes: '++id, type, folderId, pinned, updatedAt, &uuid',
+  folders: '++id, name, &uuid',
+  recipes: '++id, name, updatedAt, &uuid',
+  mealPlan: '++id, date, slot, &uuid',
+  shopping: '++id, createdAt, &uuid',
+  events: '++id, date, &uuid',
+  transactions: '++id, date, type, category, &uuid',
+  outbox: 'key',
+  meta: 'key',
+})
+
+// v8: Home Inventory — items cataloged by room.
+db.version(8).stores({
+  brainDump: '++id, status, createdAt, &uuid',
+  tasks: '++id, status, dueDate, createdAt, &uuid',
+  notes: '++id, type, folderId, pinned, updatedAt, &uuid',
+  folders: '++id, name, &uuid',
+  recipes: '++id, name, updatedAt, &uuid',
+  mealPlan: '++id, date, slot, &uuid',
+  shopping: '++id, createdAt, &uuid',
+  events: '++id, date, &uuid',
+  transactions: '++id, date, type, category, &uuid',
+  inventory: '++id, room, name, &uuid',
   outbox: 'key',
   meta: 'key',
 })
@@ -396,12 +454,14 @@ export interface BackupFile {
   mealPlan?: MealPlanEntry[]
   shopping?: ShoppingItem[]
   events?: CalendarEvent[]
+  transactions?: Transaction[]
+  inventory?: InventoryItem[]
 }
 
 export async function exportBackup(): Promise<BackupFile> {
   return {
     app: 'household-hub',
-    version: 6,
+    version: 8,
     exportedAt: new Date().toISOString(),
     brainDump: await db.brainDump.toArray(),
     tasks: await db.tasks.toArray(),
@@ -411,6 +471,8 @@ export async function exportBackup(): Promise<BackupFile> {
     mealPlan: await db.mealPlan.toArray(),
     shopping: await db.shopping.toArray(),
     events: await db.events.toArray(),
+    transactions: await db.transactions.toArray(),
+    inventory: await db.inventory.toArray(),
   }
 }
 
@@ -427,6 +489,8 @@ export async function importBackup(data: BackupFile): Promise<void> {
     db.mealPlan,
     db.shopping,
     db.events,
+    db.transactions,
+    db.inventory,
     db.outbox,
     db.meta,
   ]
@@ -449,6 +513,10 @@ export async function importBackup(data: BackupFile): Promise<void> {
       if (Array.isArray(data.shopping)) await db.shopping.bulkAdd(data.shopping)
       await db.events.clear()
       if (Array.isArray(data.events)) await db.events.bulkAdd(data.events)
+      await db.transactions.clear()
+      if (Array.isArray(data.transactions)) await db.transactions.bulkAdd(data.transactions)
+      await db.inventory.clear()
+      if (Array.isArray(data.inventory)) await db.inventory.bulkAdd(data.inventory)
       // The import replaced local state wholesale, so sync bookkeeping
       // must start over: forget cursors and re-merge everything on the
       // next sync.
@@ -475,6 +543,8 @@ export async function eraseAllLocalData(): Promise<void> {
     db.mealPlan,
     db.shopping,
     db.events,
+    db.transactions,
+    db.inventory,
     db.outbox,
     db.meta,
   ]

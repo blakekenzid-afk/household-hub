@@ -1620,3 +1620,283 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ============ Phase 7: Finance ============ */
+.chip-row.scroll-row {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.chip-row.scroll-row::-webkit-scrollbar {
+  display: none;
+}
+
+.chip-row.scroll-row .chip {
+  flex-shrink: 0;
+}
+
+.fin-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px;
+  margin-bottom: 4px;
+}
+
+.fin-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.fin-stat + .fin-stat {
+  border-left: 1px solid var(--separator);
+  padding-left: 14px;
+}
+
+.fin-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+}
+
+.fin-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fin-stat-value.income {
+  color: #16a34a;
+}
+
+.fin-stat-value.expense {
+  color: var(--danger);
+}
+
+.fin-group + .fin-group {
+  margin-top: 2px;
+}
+
+.tx-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--separator);
+  padding: 11px 0;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.day-detail .tx-row:first-child {
+  border-top: none;
+}
+
+.tx-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tx-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tx-category {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.tx-note {
+  font-size: 12.5px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-amount {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.tx-amount.income {
+  color: #16a34a;
+}
+
+.tx-amount.expense {
+  color: var(--text);
+}
+
+/* Transaction sheet amount field */
+.amount-field {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 12px 0 6px;
+}
+
+.amount-currency {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.amount-input {
+  border: none;
+  background: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--text);
+  width: 100%;
+  max-width: 240px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.amount-input::placeholder {
+  color: var(--text-3);
+}
+
+/* ============ Phase 8: Home Inventory ============ */
+.inv-group + .inv-group {
+  margin-top: 2px;
+}
+
+.room-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.inv-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--separator);
+  padding: 11px 0;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.day-detail .inv-row:first-child {
+  border-top: none;
+}
+
+.inv-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.inv-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qty-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-2);
+  background: var(--field-bg);
+  border-radius: 999px;
+  padding: 1px 7px;
+  flex-shrink: 0;
+}
+
+.inv-sub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  min-width: 0;
+}
+
+.inv-room {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.inv-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Quantity stepper */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 4px;
+}
+
+.stepper-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--separator);
+  background: var(--card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.stepper-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.stepper-btn:disabled {
+  opacity: 0.4;
+}
+
+.stepper-value {
+  font-size: 22px;
+  font-weight: 700;
+  min-width: 40px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}

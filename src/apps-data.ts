@@ -73,11 +73,10 @@ export const APPS: AppDef[] = [
   {
     id: 'finance',
     name: 'Finance',
-    subtitle: 'Spending & receipts',
+    subtitle: 'Spending & income',
     icon: Wallet,
     color: '#4F46E5',
-    phase: 'Later',
-    soon: 'Income and expense tracking with categories and receipts.',
+    route: '/apps/finance',
   },
   {
     id: 'inventory',
@@ -85,7 +84,6 @@ export const APPS: AppDef[] = [
     subtitle: 'Catalog & find your things',
     icon: Package,
     color: '#DB2777',
-    phase: 'Later',
-    soon: 'Catalog what you own by room, with search and filter chips to find anything fast.',
+    route: '/apps/inventory',
   },
 ]

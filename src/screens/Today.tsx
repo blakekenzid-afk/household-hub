@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Brain, CalendarDays, ChefHat, ChevronRight, SquareCheckBig } from 'lucide-react'
+import { Brain, CalendarDays, ChefHat, ChevronRight, SquareCheckBig, Wallet } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Task } from '../db'
-import { eventDatesInRange, formatTime, todayStr } from '../dates'
+import { eventDatesInRange, formatTime, monthStart, sameMonth, todayStr } from '../dates'
+import { formatCents } from '../money'
 import TaskRow from '../components/TaskRow'
 import TaskSheet from '../components/TaskSheet'
 
@@ -36,6 +37,14 @@ export default function Today() {
         if (a.allDay !== b.allDay) return a.allDay ? -1 : 1
         return (a.startTime ?? '').localeCompare(b.startTime ?? '')
       })
+  }, [])
+
+  const monthSpent = useLiveQuery(async () => {
+    const anchor = monthStart(todayStr())
+    const all = await db.transactions.toArray()
+    return all
+      .filter((t) => t.type === 'expense' && sameMonth(t.date, anchor))
+      .reduce((s, t) => s + t.amount, 0)
   }, [])
 
   const dinner = useLiveQuery(async () => {
@@ -197,6 +206,32 @@ export default function Today() {
                   : dinner
                       .map((d) => `${d.slot === 'dinner' ? 'Dinner' : d.slot === 'lunch' ? 'Lunch' : 'Breakfast'}: ${d.label}`)
                       .join(' · ')}
+            </div>
+          </div>
+          <ChevronRight className="chevron" aria-hidden />
+        </div>
+      </div>
+
+      <div className="section-label">This month</div>
+      <div
+        className="card tappable"
+        role="button"
+        tabIndex={0}
+        onClick={() => navigate('/apps/finance')}
+        onKeyDown={(e) => e.key === 'Enter' && navigate('/apps/finance')}
+      >
+        <div className="card-row">
+          <div className="tile-icon" style={{ '--tile-color': '#4F46E5' } as React.CSSProperties}>
+            <Wallet aria-hidden />
+          </div>
+          <div className="card-row-text">
+            <div className="tile-name">Finance</div>
+            <div className="tile-sub">
+              {monthSpent === undefined
+                ? ' '
+                : monthSpent === 0
+                  ? 'No spending logged this month.'
+                  : `${formatCents(monthSpent)} spent this month`}
             </div>
           </div>
           <ChevronRight className="chevron" aria-hidden />
