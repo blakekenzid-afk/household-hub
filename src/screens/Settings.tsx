@@ -365,7 +365,7 @@ export default function Settings() {
 
       <div className="section-label">About</div>
       <div className="card">
-        <div className="tile-sub">Household Hub · Push reminders · v0.9.0</div>
+        <div className="tile-sub">Household Hub · Push reminders · v0.9.1</div>
       </div>
     </>
   )
