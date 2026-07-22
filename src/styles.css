@@ -1900,3 +1900,67 @@ button {
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
+
+/* ============ Stage 1: in-app reminders ============ */
+.reminder-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.reminder {
+  display: flex;
+  align-items: center;
+  background: var(--accent-tint);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.reminder-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  padding: 12px 6px 12px 14px;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+
+.reminder-main svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.reminder-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reminder-x {
+  background: none;
+  border: none;
+  padding: 12px 14px;
+  color: var(--accent);
+  cursor: pointer;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.reminder-x svg {
+  width: 16px;
+  height: 16px;
+}
+
+.reminder-x:hover {
+  opacity: 1;
+}

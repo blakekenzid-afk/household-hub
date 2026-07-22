@@ -126,6 +126,12 @@ export function dayHeading(dateStr: string): string {
   })
 }
 
+/** 24h "HH:MM" → minutes since midnight. */
+export function hhmmToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number)
+  return h * 60 + m
+}
+
 /** 24h "HH:MM" → locale-formatted time, e.g. "9:00 AM". */
 export function formatTime(hhmm: string): string {
   const [h, m] = hhmm.split(':').map(Number)

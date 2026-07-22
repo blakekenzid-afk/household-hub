@@ -284,7 +284,7 @@ export default function Settings() {
 
       <div className="section-label">About</div>
       <div className="card">
-        <div className="tile-sub">Household Hub · Phase 8 · v0.8.0</div>
+        <div className="tile-sub">Household Hub · Reminders · v0.8.1</div>
       </div>
     </>
   )
