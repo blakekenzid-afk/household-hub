@@ -5,6 +5,7 @@ import {
   ListChecks,
   NotebookPen,
   Plus,
+  Scissors,
   ShoppingCart,
   SquareCheckBig,
 } from 'lucide-react'
@@ -43,6 +44,11 @@ export default function CaptureSheet({
   const [newListName, setNewListName] = useState('')
   const ref = useRef<HTMLTextAreaElement>(null)
   const canTriage = item?.status === 'inbox'
+  // Non-empty lines — a pasted list can become one inbox item per line.
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
 
   const checklists = useLiveQuery(
     () => db.notes.where('type').equals('checklist').toArray(),
@@ -71,6 +77,25 @@ export default function CaptureSheet({
   async function remove() {
     if (!item) return
     await db.brainDump.delete(item.id)
+    onClose()
+  }
+
+  // Drop each line into the inbox as its own thought. When editing an
+  // existing item, the original is replaced by the split-out lines.
+  async function splitToInbox() {
+    if (lines.length < 2) return
+    const now = Date.now()
+    await db.transaction('rw', db.brainDump, async () => {
+      if (item) await db.brainDump.delete(item.id)
+      await db.brainDump.bulkAdd(
+        lines.map((line, i) => ({
+          text: line,
+          // First line newest so the inbox reads top-to-bottom in list order.
+          createdAt: now + (lines.length - 1 - i),
+          status: 'inbox' as const,
+        })),
+      )
+    })
     onClose()
   }
 
@@ -258,6 +283,11 @@ export default function CaptureSheet({
         </>
       )}
 
+      {lines.length >= 2 && (
+        <button className="btn secondary" onClick={() => void splitToInbox()}>
+          <Scissors aria-hidden /> Split into {lines.length} separate thoughts
+        </button>
+      )}
       <button className="btn" disabled={!text.trim()} onClick={() => void save()}>
         {item ? 'Save' : 'Drop it in the inbox'}
       </button>
