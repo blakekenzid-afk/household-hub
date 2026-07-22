@@ -1,6 +1,6 @@
-import { Check, Flag, Repeat } from 'lucide-react'
+import { Bell, Check, Flag, Repeat } from 'lucide-react'
 import { toggleTask, type Task } from '../db'
-import { dueLabel } from '../dates'
+import { dueLabel, formatTime } from '../dates'
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: '#2563EB',
@@ -35,9 +35,19 @@ export default function TaskRow({ task, onOpen, showDue = true }: Props) {
         onKeyDown={(e) => e.key === 'Enter' && onOpen?.(task)}
       >
         <div className={`task-title${done ? ' done' : ''}`}>{task.title}</div>
-        {(due || task.priority !== 'none' || task.repeat !== 'none' || task.notes) && (
+        {(due ||
+          task.priority !== 'none' ||
+          task.repeat !== 'none' ||
+          task.reminderLead != null ||
+          task.notes) && (
           <div className="task-meta">
-            {due && !done && <span className={`due ${due.tone}`}>{due.text}</span>}
+            {due && !done && (
+              <span className={`due ${due.tone}`}>
+                {due.text}
+                {task.dueTime ? ` · ${formatTime(task.dueTime)}` : ''}
+              </span>
+            )}
+            {task.reminderLead != null && !done && <Bell aria-label="Reminder set" />}
             {task.priority !== 'none' && (
               <Flag
                 aria-label={`${task.priority} priority`}

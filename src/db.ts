@@ -18,6 +18,10 @@ export interface BrainDumpItem {
   sortedTo?: 'task' | 'note' | 'list-item' | 'shopping' | 'recipe' | 'event'
 }
 
+// reminderLead: minutes before the due/start time to remind. undefined = no
+// reminder; 0 = at the time itself. Only meaningful alongside a time.
+export type ReminderLead = 0 | 10 | 30 | 60
+
 export interface Task {
   id: number
   uuid?: string
@@ -26,6 +30,8 @@ export interface Task {
   notes?: string
   status: 'open' | 'done'
   dueDate?: string // YYYY-MM-DD, local
+  dueTime?: string // HH:MM 24h, optional time-of-day for the due date
+  reminderLead?: ReminderLead
   priority: 'none' | 'low' | 'medium' | 'high'
   repeat: 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly'
   createdAt: number
@@ -101,6 +107,7 @@ export interface CalendarEvent {
   endTime?: string // HH:MM 24h
   location?: string
   notes?: string
+  reminderLead?: ReminderLead
   repeat: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
   createdAt: number
 }
@@ -306,6 +313,8 @@ export async function toggleTask(task: Task): Promise<void> {
           notes: task.notes,
           status: 'open',
           dueDate: nextOccurrence(task.dueDate, task.repeat),
+          dueTime: task.dueTime,
+          reminderLead: task.reminderLead,
           priority: task.priority,
           repeat: task.repeat,
           createdAt: Date.now(),

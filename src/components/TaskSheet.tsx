@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import Sheet from './Sheet'
-import { db, type Task } from '../db'
+import { db, type ReminderLead, type Task } from '../db'
 import { addDays, todayStr } from '../dates'
+import { REMINDER_OPTIONS, reminderLabel } from '../reminder-data'
 
 interface Props {
   task?: Task
@@ -31,6 +32,8 @@ export default function TaskSheet({ task, onClose }: Props) {
   const [title, setTitle] = useState(task?.title ?? '')
   const [notes, setNotes] = useState(task?.notes ?? '')
   const [dueDate, setDueDate] = useState<string | undefined>(task?.dueDate)
+  const [dueTime, setDueTime] = useState<string | undefined>(task?.dueTime)
+  const [reminderLead, setReminderLead] = useState<ReminderLead | undefined>(task?.reminderLead)
   const [priority, setPriority] = useState<Task['priority']>(task?.priority ?? 'none')
   const [repeat, setRepeat] = useState<Task['repeat']>(task?.repeat ?? 'none')
 
@@ -47,6 +50,8 @@ export default function TaskSheet({ task, onClose }: Props) {
       title: trimmed,
       notes: notes.trim() || undefined,
       dueDate,
+      dueTime: dueDate ? dueTime : undefined,
+      reminderLead: dueDate && dueTime ? reminderLead : undefined,
       priority,
       repeat: dueDate ? repeat : ('none' as const),
     }
@@ -107,6 +112,45 @@ export default function TaskSheet({ task, onClose }: Props) {
           aria-label="Custom due date"
         />
       </div>
+
+      {dueDate && (
+        <>
+          <div className="sheet-label">Time</div>
+          <div className="chip-row">
+            <button
+              className={`chip${!dueTime ? ' active' : ''}`}
+              onClick={() => {
+                setDueTime(undefined)
+                setReminderLead(undefined)
+              }}
+            >
+              No time
+            </button>
+            <input
+              type="time"
+              className={`chip date-chip${dueTime ? ' active' : ''}`}
+              value={dueTime ?? ''}
+              onChange={(e) => setDueTime(e.target.value || undefined)}
+              aria-label="Due time"
+            />
+          </div>
+
+          <div className="sheet-label">Remind me</div>
+          <div className="chip-row">
+            {REMINDER_OPTIONS.map((r) => (
+              <button
+                key={r}
+                className={`chip${(reminderLead ?? 'off') === r ? ' active' : ''}`}
+                disabled={!dueTime && r !== 'off'}
+                onClick={() => setReminderLead(r === 'off' ? undefined : r)}
+              >
+                {reminderLabel(r)}
+              </button>
+            ))}
+          </div>
+          {!dueTime && <p className="sheet-hint">Set a time to get a reminder.</p>}
+        </>
+      )}
 
       <div className="sheet-label">Repeat</div>
       <div className="chip-row">

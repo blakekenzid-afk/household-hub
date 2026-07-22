@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CalendarClock, ChefHat, SquareCheckBig, X, type LucideIcon } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, type Task } from '../db'
 import { eventDatesInRange, hhmmToMinutes, todayStr } from '../dates'
 
 // How the in-app reminder surfacing behaves. This is Stage 1: it only nudges
@@ -43,10 +43,10 @@ export default function ReminderBar() {
   const dueTasks = useLiveQuery(
     async () => {
       const open = await db.tasks.where('status').equals('open').toArray()
-      return open.filter((t) => t.dueDate && t.dueDate <= today).map((t) => t.dueDate!)
+      return open.filter((t) => t.dueDate && t.dueDate <= today)
     },
     [today],
-    [] as string[],
+    [] as Task[],
   )
   // Default true so a nudge never flashes before the meal plan has loaded.
   const dinnerPlanned = useLiveQuery(
@@ -63,17 +63,34 @@ export default function ReminderBar() {
   const reminders = useMemo<Reminder[]>(() => {
     const list: Reminder[] = []
 
-    // Timed events today that start within the next hour (most time-sensitive).
+    // Timed events today, shown once within their lead window (default 1 hr).
     for (const e of events ?? []) {
       if (e.allDay || !e.startTime) continue
       if (eventDatesInRange(e, today, today).length === 0) continue
+      const window = e.reminderLead ?? SOON_MINUTES
       const delta = hhmmToMinutes(e.startTime) - nowMin
-      if (delta < 0 || delta > SOON_MINUTES) continue
+      if (delta < 0 || delta > window) continue
       list.push({
         id: `evt-${e.id}-${today}`,
         icon: CalendarClock,
         text: delta === 0 ? `“${e.title}” starts now` : `“${e.title}” starts in ${delta} min`,
         route: '/apps/calendar',
+      })
+    }
+
+    // Timed tasks due today, within their lead window — shown individually.
+    const shownTaskIds = new Set<number>()
+    for (const t of dueTasks ?? []) {
+      if (t.dueDate !== today || !t.dueTime) continue
+      const window = t.reminderLead ?? SOON_MINUTES
+      const delta = hhmmToMinutes(t.dueTime) - nowMin
+      if (delta < 0 || delta > window) continue
+      shownTaskIds.add(t.id)
+      list.push({
+        id: `task-${t.id}-${today}`,
+        icon: SquareCheckBig,
+        text: delta === 0 ? `“${t.title}” is due now` : `“${t.title}” due in ${delta} min`,
+        route: '/apps/tasks',
       })
     }
 
@@ -87,17 +104,17 @@ export default function ReminderBar() {
       })
     }
 
-    // Tasks due today or already overdue.
-    const due = dueTasks ?? []
-    if (due.length > 0) {
-      const overdue = due.filter((d) => d < today).length
+    // Remaining due/overdue tasks not already surfaced with their own time.
+    const remaining = (dueTasks ?? []).filter((t) => !shownTaskIds.has(t.id))
+    if (remaining.length > 0) {
+      const overdue = remaining.filter((t) => t.dueDate! < today).length
       list.push({
         id: `tasks-${today}`,
         icon: SquareCheckBig,
         text:
           overdue > 0
-            ? `${due.length} task${due.length === 1 ? '' : 's'} due or overdue`
-            : `${due.length} task${due.length === 1 ? '' : 's'} due today`,
+            ? `${remaining.length} task${remaining.length === 1 ? '' : 's'} due or overdue`
+            : `${remaining.length} task${remaining.length === 1 ? '' : 's'} due today`,
         route: '/apps/tasks',
       })
     }

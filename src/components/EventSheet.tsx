@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import Sheet from './Sheet'
-import { db, type CalendarEvent } from '../db'
+import { db, type CalendarEvent, type ReminderLead } from '../db'
 import { addDays, todayStr } from '../dates'
+import { REMINDER_OPTIONS, reminderLabel } from '../reminder-data'
 
 interface Props {
   event?: CalendarEvent
@@ -28,6 +29,7 @@ export default function EventSheet({ event, defaultDate, onClose }: Props) {
   const [endTime, setEndTime] = useState(event?.endTime ?? '')
   const [location, setLocation] = useState(event?.location ?? '')
   const [notes, setNotes] = useState(event?.notes ?? '')
+  const [reminderLead, setReminderLead] = useState<ReminderLead | undefined>(event?.reminderLead)
   const [repeat, setRepeat] = useState<CalendarEvent['repeat']>(event?.repeat ?? 'none')
 
   const today = todayStr()
@@ -45,6 +47,7 @@ export default function EventSheet({ event, defaultDate, onClose }: Props) {
       endTime: allDay || !endTime ? undefined : endTime,
       location: location.trim() || undefined,
       notes: notes.trim() || undefined,
+      reminderLead: allDay ? undefined : reminderLead,
       repeat,
     }
     if (event) {
@@ -130,6 +133,23 @@ export default function EventSheet({ event, defaultDate, onClose }: Props) {
             />
           </label>
         </div>
+      )}
+
+      {!allDay && (
+        <>
+          <div className="sheet-label">Remind me</div>
+          <div className="chip-row">
+            {REMINDER_OPTIONS.map((r) => (
+              <button
+                key={r}
+                className={`chip${(reminderLead ?? 'off') === r ? ' active' : ''}`}
+                onClick={() => setReminderLead(r === 'off' ? undefined : r)}
+              >
+                {reminderLabel(r)}
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       <div className="sheet-label">Repeat</div>
