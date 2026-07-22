@@ -5,7 +5,6 @@ import {
   ListChecks,
   NotebookPen,
   Plus,
-  Scissors,
   ShoppingCart,
   SquareCheckBig,
 } from 'lucide-react'
@@ -64,6 +63,18 @@ export default function CaptureSheet({
     if (!trimmed) return
     if (item) {
       await db.brainDump.update(item.id, { text: trimmed })
+    } else if (lines.length >= 2) {
+      // A brain dump of several lines lands as one inbox item per line,
+      // ready to sort individually — first line newest so the inbox reads
+      // top-to-bottom in the order they were written.
+      const now = Date.now()
+      await db.brainDump.bulkAdd(
+        lines.map((line, i) => ({
+          text: line,
+          createdAt: now + (lines.length - 1 - i),
+          status: 'inbox' as const,
+        })),
+      )
     } else {
       await db.brainDump.add({
         text: trimmed,
@@ -77,25 +88,6 @@ export default function CaptureSheet({
   async function remove() {
     if (!item) return
     await db.brainDump.delete(item.id)
-    onClose()
-  }
-
-  // Drop each line into the inbox as its own thought. When editing an
-  // existing item, the original is replaced by the split-out lines.
-  async function splitToInbox() {
-    if (lines.length < 2) return
-    const now = Date.now()
-    await db.transaction('rw', db.brainDump, async () => {
-      if (item) await db.brainDump.delete(item.id)
-      await db.brainDump.bulkAdd(
-        lines.map((line, i) => ({
-          text: line,
-          // First line newest so the inbox reads top-to-bottom in list order.
-          createdAt: now + (lines.length - 1 - i),
-          status: 'inbox' as const,
-        })),
-      )
-    })
     onClose()
   }
 
@@ -283,14 +275,16 @@ export default function CaptureSheet({
         </>
       )}
 
-      {lines.length >= 2 && (
-        <button className="btn secondary" onClick={() => void splitToInbox()}>
-          <Scissors aria-hidden /> Split into {lines.length} separate thoughts
-        </button>
-      )}
       <button className="btn" disabled={!text.trim()} onClick={() => void save()}>
-        {item ? 'Save' : 'Drop it in the inbox'}
+        {item
+          ? 'Save'
+          : lines.length >= 2
+            ? `Drop ${lines.length} thoughts in the inbox`
+            : 'Drop it in the inbox'}
       </button>
+      {!item && lines.length >= 2 && (
+        <p className="sheet-hint">Each line becomes its own thing to sort.</p>
+      )}
       {item && (
         <button className="btn danger-ghost" onClick={() => void remove()}>
           Delete

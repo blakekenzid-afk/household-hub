@@ -34,13 +34,21 @@ export default function BrainDump() {
   )
 
   async function quickAdd() {
-    const trimmed = quickText.trim()
-    if (!trimmed) return
-    await db.brainDump.add({
-      text: trimmed,
-      createdAt: Date.now(),
-      status: 'inbox',
-    })
+    // Dump every non-empty line as its own inbox item — type a list, paste a
+    // list, or add one thing at a time. First line newest keeps list order.
+    const lines = quickText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+    if (!lines.length) return
+    const now = Date.now()
+    await db.brainDump.bulkAdd(
+      lines.map((line, i) => ({
+        text: line,
+        createdAt: now + (lines.length - 1 - i),
+        status: 'inbox' as const,
+      })),
+    )
     setQuickText('')
   }
 
@@ -85,11 +93,18 @@ export default function BrainDump() {
             void quickAdd()
           }}
         >
-          <input
+          <textarea
             className="quick-add-input"
-            placeholder="Type a thought…"
+            placeholder="Type or paste a list — one thing per line…"
+            rows={1}
             value={quickText}
             onChange={(e) => setQuickText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                void quickAdd()
+              }
+            }}
           />
           <button
             type="submit"
