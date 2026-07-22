@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable, type Table } from 'dexie'
-import { nextOccurrence } from './dates'
+import { nextOccurrence, todayStr } from './dates'
 
 // Every record carries a device-independent sync identity (uuid) and a
 // last-modified timestamp (updatedAt, ms epoch) used for last-write-wins
@@ -90,6 +90,21 @@ export interface ShoppingItem {
   updatedAt?: number
 }
 
+export interface CalendarEvent {
+  id: number
+  uuid?: string
+  updatedAt?: number
+  title: string
+  date: string // YYYY-MM-DD, local — the (first) day it occurs
+  allDay: boolean
+  startTime?: string // HH:MM 24h, when not all-day
+  endTime?: string // HH:MM 24h
+  location?: string
+  notes?: string
+  repeat: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+  createdAt: number
+}
+
 /** A local change waiting to be pushed to sync. key = `${tbl}|${uuid}`. */
 export interface OutboxEntry {
   key: string
@@ -112,6 +127,7 @@ export const db = new Dexie('household-hub') as Dexie & {
   recipes: EntityTable<Recipe, 'id'>
   mealPlan: EntityTable<MealPlanEntry, 'id'>
   shopping: EntityTable<ShoppingItem, 'id'>
+  events: EntityTable<CalendarEvent, 'id'>
   outbox: Table<OutboxEntry, string>
   meta: Table<MetaEntry, string>
 }
@@ -133,6 +149,7 @@ export const SYNC_TABLE_NAMES = [
   'notes',
   'mealPlan',
   'shopping',
+  'events',
 ] as const
 
 export type SyncTableName = (typeof SYNC_TABLE_NAMES)[number]
@@ -180,7 +197,19 @@ db.version(5)
   .upgrade(async (tx) => {
     syncFlags.applying = true
     try {
-      for (const name of SYNC_TABLE_NAMES) {
+      // The tables that existed at v5 — literal, not SYNC_TABLE_NAMES, so
+      // adding future sync tables (events in v6) can't reach into this
+      // v4→v5 backfill for a table that doesn't exist yet.
+      const v5Tables = [
+        'folders',
+        'recipes',
+        'brainDump',
+        'tasks',
+        'notes',
+        'mealPlan',
+        'shopping',
+      ]
+      for (const name of v5Tables) {
         await tx
           .table(name)
           .toCollection()
@@ -193,6 +222,20 @@ db.version(5)
       syncFlags.applying = false
     }
   })
+
+// v6: Calendar — events table (dated, optionally timed, optionally repeating).
+db.version(6).stores({
+  brainDump: '++id, status, createdAt, &uuid',
+  tasks: '++id, status, dueDate, createdAt, &uuid',
+  notes: '++id, type, folderId, pinned, updatedAt, &uuid',
+  folders: '++id, name, &uuid',
+  recipes: '++id, name, updatedAt, &uuid',
+  mealPlan: '++id, date, slot, &uuid',
+  shopping: '++id, createdAt, &uuid',
+  events: '++id, date, &uuid',
+  outbox: 'key',
+  meta: 'key',
+})
 
 /** Complete/uncomplete a task. Completing a repeating task spawns the next occurrence. */
 export async function toggleTask(task: Task): Promise<void> {
@@ -298,6 +341,22 @@ export async function moveDumpToRecipe(itemId: number, text: string): Promise<nu
   })
 }
 
+/** Triage a brain dump item into a new all-day event today. Returns the new event id. */
+export async function moveDumpToEvent(itemId: number, text: string): Promise<number> {
+  const title = text.split('\n')[0].slice(0, 120)
+  return db.transaction('rw', db.brainDump, db.events, async () => {
+    const eventId = await db.events.add({
+      title,
+      date: todayStr(),
+      allDay: true,
+      repeat: 'none',
+      createdAt: Date.now(),
+    })
+    await db.brainDump.update(itemId, { status: 'sorted', sortedTo: 'event' })
+    return eventId
+  })
+}
+
 /**
  * Add a recipe's ingredients to the shopping list, skipping ones already
  * there unchecked. Returns how many were added.
@@ -336,12 +395,13 @@ export interface BackupFile {
   recipes?: Recipe[]
   mealPlan?: MealPlanEntry[]
   shopping?: ShoppingItem[]
+  events?: CalendarEvent[]
 }
 
 export async function exportBackup(): Promise<BackupFile> {
   return {
     app: 'household-hub',
-    version: 5,
+    version: 6,
     exportedAt: new Date().toISOString(),
     brainDump: await db.brainDump.toArray(),
     tasks: await db.tasks.toArray(),
@@ -350,6 +410,7 @@ export async function exportBackup(): Promise<BackupFile> {
     recipes: await db.recipes.toArray(),
     mealPlan: await db.mealPlan.toArray(),
     shopping: await db.shopping.toArray(),
+    events: await db.events.toArray(),
   }
 }
 
@@ -365,6 +426,7 @@ export async function importBackup(data: BackupFile): Promise<void> {
     db.recipes,
     db.mealPlan,
     db.shopping,
+    db.events,
     db.outbox,
     db.meta,
   ]
@@ -385,6 +447,8 @@ export async function importBackup(data: BackupFile): Promise<void> {
       if (Array.isArray(data.mealPlan)) await db.mealPlan.bulkAdd(data.mealPlan)
       await db.shopping.clear()
       if (Array.isArray(data.shopping)) await db.shopping.bulkAdd(data.shopping)
+      await db.events.clear()
+      if (Array.isArray(data.events)) await db.events.bulkAdd(data.events)
       // The import replaced local state wholesale, so sync bookkeeping
       // must start over: forget cursors and re-merge everything on the
       // next sync.
@@ -410,6 +474,7 @@ export async function eraseAllLocalData(): Promise<void> {
     db.recipes,
     db.mealPlan,
     db.shopping,
+    db.events,
     db.outbox,
     db.meta,
   ]

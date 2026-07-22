@@ -159,6 +159,9 @@ export default function BrainDump() {
           onMoveToTask={setNewTaskId}
           onMoveToNote={(noteId) => navigate(`/apps/notes/${noteId}`)}
           onMoveToRecipe={(recipeId) => navigate(`/apps/meals/recipes/${recipeId}`)}
+          onMoveToEvent={(eventId) =>
+            navigate('/apps/calendar', { state: { openEventId: eventId } })
+          }
         />
       )}
       {newTaskId !== null && newTask && (

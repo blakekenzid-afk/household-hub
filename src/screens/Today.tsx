@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Brain, ChefHat, ChevronRight, SquareCheckBig } from 'lucide-react'
+import { Brain, CalendarDays, ChefHat, ChevronRight, SquareCheckBig } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Task } from '../db'
-import { todayStr } from '../dates'
+import { eventDatesInRange, formatTime, todayStr } from '../dates'
 import TaskRow from '../components/TaskRow'
 import TaskSheet from '../components/TaskSheet'
 
@@ -25,6 +25,17 @@ export default function Today() {
     return open
       .filter((t) => t.dueDate && t.dueDate <= today)
       .sort((a, b) => (a.dueDate! < b.dueDate! ? -1 : 1))
+  }, [])
+
+  const todayEvents = useLiveQuery(async () => {
+    const today = todayStr()
+    const all = await db.events.toArray()
+    return all
+      .filter((e) => eventDatesInRange(e, today, today).length > 0)
+      .sort((a, b) => {
+        if (a.allDay !== b.allDay) return a.allDay ? -1 : 1
+        return (a.startTime ?? '').localeCompare(b.startTime ?? '')
+      })
   }, [])
 
   const dinner = useLiveQuery(async () => {
@@ -122,6 +133,44 @@ export default function Today() {
                 +{extra} more
               </button>
             )}
+          </div>
+        )}
+      </div>
+
+      <div className="section-label">Today’s calendar</div>
+      <div className="card today-tasks">
+        <div
+          className="card-row tappable"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate('/apps/calendar')}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/apps/calendar')}
+        >
+          <div className="tile-icon" style={{ '--tile-color': '#DC2626' } as React.CSSProperties}>
+            <CalendarDays aria-hidden />
+          </div>
+          <div className="card-row-text">
+            <div className="tile-name">Calendar</div>
+            <div className="tile-sub">
+              {todayEvents === undefined
+                ? ' '
+                : todayEvents.length === 0
+                  ? 'Nothing on today.'
+                  : `${todayEvents.length} event${todayEvents.length === 1 ? '' : 's'} today`}
+            </div>
+          </div>
+          <ChevronRight className="chevron" aria-hidden />
+        </div>
+        {todayEvents && todayEvents.length > 0 && (
+          <div className="today-task-list">
+            {todayEvents.map((e) => (
+              <div key={e.id} className="today-event">
+                <span className="today-event-time">
+                  {e.allDay ? 'All day' : formatTime(e.startTime!)}
+                </span>
+                <span className="today-event-title">{e.title || 'Untitled event'}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>

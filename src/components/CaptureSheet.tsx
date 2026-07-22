@@ -12,6 +12,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import Sheet from './Sheet'
 import {
   db,
+  moveDumpToEvent,
   moveDumpToListItem,
   moveDumpToNote,
   moveDumpToRecipe,
@@ -26,11 +27,8 @@ interface Props {
   onMoveToTask?: (taskId: number) => void
   onMoveToNote?: (noteId: number) => void
   onMoveToRecipe?: (recipeId: number) => void
+  onMoveToEvent?: (eventId: number) => void
 }
-
-const FUTURE_TARGETS = [
-  { icon: Calendar, label: 'Event', phase: 'Later', color: '#DC2626' },
-]
 
 export default function CaptureSheet({
   item,
@@ -38,6 +36,7 @@ export default function CaptureSheet({
   onMoveToTask,
   onMoveToNote,
   onMoveToRecipe,
+  onMoveToEvent,
 }: Props) {
   const [text, setText] = useState(item?.text ?? '')
   const [view, setView] = useState<'main' | 'pick-list'>('main')
@@ -106,6 +105,13 @@ export default function CaptureSheet({
     const recipeId = await moveDumpToRecipe(item.id, text.trim())
     onClose()
     onMoveToRecipe?.(recipeId)
+  }
+
+  async function moveToEvent() {
+    if (!item || !text.trim()) return
+    const eventId = await moveDumpToEvent(item.id, text.trim())
+    onClose()
+    onMoveToEvent?.(eventId)
   }
 
   async function moveToNewList() {
@@ -239,21 +245,15 @@ export default function CaptureSheet({
               <ChefHat aria-hidden />
               Recipe
             </button>
-            {FUTURE_TARGETS.map((t) => {
-              const Icon = t.icon
-              return (
-                <button
-                  key={t.label}
-                  className="move-btn"
-                  style={{ '--tile-color': t.color } as React.CSSProperties}
-                  disabled
-                >
-                  <Icon aria-hidden />
-                  {t.label}
-                  <span className="move-phase">{t.phase}</span>
-                </button>
-              )
-            })}
+            <button
+              className="move-btn"
+              style={{ '--tile-color': '#DC2626' } as React.CSSProperties}
+              disabled={!text.trim()}
+              onClick={() => void moveToEvent()}
+            >
+              <Calendar aria-hidden />
+              Event
+            </button>
           </div>
         </>
       )}

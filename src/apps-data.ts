@@ -65,11 +65,10 @@ export const APPS: AppDef[] = [
   {
     id: 'calendar',
     name: 'Calendar',
-    subtitle: 'Events & reminders',
+    subtitle: 'Events & your dated tasks',
     icon: Calendar,
     color: '#DC2626',
-    phase: 'Later',
-    soon: 'Events with a fast chip-based form for repeats and reminders, plus your dated tasks in one view.',
+    route: '/apps/calendar',
   },
   {
     id: 'finance',

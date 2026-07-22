@@ -11,6 +11,7 @@ import NoteEditor from './screens/NoteEditor'
 import Meals from './screens/Meals'
 import RecipeEditor from './screens/RecipeEditor'
 import Shopping from './screens/Shopping'
+import Calendar from './screens/Calendar'
 import ComingSoon from './screens/ComingSoon'
 import Settings from './screens/Settings'
 import './styles.css'
@@ -38,6 +39,7 @@ const router = createHashRouter([
       { path: 'apps/meals', element: <Meals /> },
       { path: 'apps/meals/recipes/:recipeId', element: <RecipeEditor /> },
       { path: 'apps/shopping', element: <Shopping /> },
+      { path: 'apps/calendar', element: <Calendar /> },
       { path: 'apps/soon/:appId', element: <ComingSoon /> },
       { path: 'settings', element: <Settings /> },
     ],
