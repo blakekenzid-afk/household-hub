@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { Cloud, CloudOff, Download, Trash2, Upload } from 'lucide-react'
+import { Bell, BellOff, Cloud, CloudOff, Download, Trash2, Upload } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Session } from '@supabase/supabase-js'
 import {
@@ -11,6 +11,7 @@ import {
 } from '../db'
 import { supabase } from '../supabase'
 import { getSyncStatus, subscribeSyncStatus, syncNow } from '../sync'
+import { disablePush, enablePush, getPushState, pushSupported, type PushState } from '../push'
 
 type Theme = 'system' | 'light' | 'dark'
 
@@ -159,6 +160,83 @@ function SyncSection() {
   )
 }
 
+function ReminderSection() {
+  const [session, setSession] = useState<Session | null>(null)
+  const [state, setState] = useState<PushState | 'loading'>('loading')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
+    return () => sub.subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    void getPushState().then(setState)
+  }, [session])
+
+  async function toggle() {
+    setBusy(true)
+    setMsg('')
+    if (state === 'on') {
+      await disablePush()
+      setState('off')
+    } else {
+      const res = await enablePush()
+      if (res.ok) {
+        setMsg('Reminders are on for this device.')
+      } else if (res.reason === 'blocked') {
+        setMsg('Notifications are blocked in your browser settings — allow them there, then try again.')
+      } else if (res.reason === 'signed-out') {
+        setMsg('Sign in above first, then turn on reminders.')
+      } else if (res.reason === 'dismissed') {
+        setMsg('Permission was dismissed. Tap Enable and choose Allow.')
+      } else {
+        setMsg(`Couldn’t enable reminders: ${res.reason}`)
+      }
+      await getPushState().then(setState)
+    }
+    setBusy(false)
+  }
+
+  if (!pushSupported()) {
+    return (
+      <div className="card">
+        <div className="tile-sub">
+          This browser doesn’t support notifications. On iPhone, add the app to your Home
+          Screen first, then reopen it here.
+        </div>
+      </div>
+    )
+  }
+
+  const on = state === 'on'
+  return (
+    <div className="card">
+      <div className="card-row">
+        {on ? <Bell className="sync-icon" aria-hidden /> : <BellOff className="sync-icon" aria-hidden />}
+        <div className="card-row-text">
+          <div className="tile-name">{on ? 'Reminders are on' : 'Reminders are off'}</div>
+          <div className="tile-sub">
+            {!session
+              ? 'Sign in above, then turn this on to be notified even when the app is closed.'
+              : 'Get notified for timed tasks and events — even when the app is closed.'}
+          </div>
+        </div>
+      </div>
+      <button
+        className="btn"
+        disabled={busy || state === 'loading' || (!session && !on)}
+        onClick={() => void toggle()}
+      >
+        {on ? 'Turn off reminders' : 'Enable reminders'}
+      </button>
+      {msg && <p className="settings-message">{msg}</p>}
+    </div>
+  )
+}
+
 export default function Settings() {
   const [theme, setTheme] = useState<Theme>(currentTheme)
   const [message, setMessage] = useState('')
@@ -253,6 +331,9 @@ export default function Settings() {
       <div className="section-label">Sync</div>
       <SyncSection />
 
+      <div className="section-label">Reminders</div>
+      <ReminderSection />
+
       <div className="section-label">Your data</div>
       <div className="row-group">
         <button className="row" onClick={() => void handleExport()}>
@@ -284,7 +365,7 @@ export default function Settings() {
 
       <div className="section-label">About</div>
       <div className="card">
-        <div className="tile-sub">Household Hub · Reminders · v0.8.2</div>
+        <div className="tile-sub">Household Hub · Push reminders · v0.9.0</div>
       </div>
     </>
   )

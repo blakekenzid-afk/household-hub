@@ -8,7 +8,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['icon.svg', 'apple-touch-icon.png', 'push-sw.js'],
+      // Layer our push/notificationclick handlers onto the generated SW.
+      workbox: {
+        importScripts: ['push-sw.js'],
+      },
       manifest: {
         name: 'Household Hub',
         short_name: 'Household Hub',
