@@ -24,11 +24,16 @@ import {
   parse,
   sameMonth,
   todayStr,
+  weekDates,
+  weekLabel,
 } from '../dates'
 import { noteColorHex } from '../note-colors'
 import EventSheet from '../components/EventSheet'
 import TaskSheet from '../components/TaskSheet'
 import TaskRow from '../components/TaskRow'
+import CalendarTimeGrid from '../components/CalendarTimeGrid'
+
+type View = 'month' | 'week' | 'day' | 'agenda'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 const AGENDA_DAYS = 60
@@ -98,7 +103,7 @@ export default function Calendar() {
   const navigate = useNavigate()
   const location = useLocation()
   const today = todayStr()
-  const [view, setView] = useState<'month' | 'agenda'>('month')
+  const [view, setView] = useState<View>('month')
   const [monthAnchor, setMonthAnchor] = useState(() => monthStart(today))
   const [selected, setSelected] = useState(today)
   const [editingEvent, setEditingEvent] = useState<{
@@ -126,27 +131,40 @@ export default function Calendar() {
     navigate(location.pathname, { replace: true, state: null })
   }, [openEventId, events, navigate, location.pathname])
 
-  const gridDates = monthGridDates(monthAnchor)
-  const gridStart = gridDates[0]
-  const gridEnd = gridDates[gridDates.length - 1]
+  // Build date→events (recurrence + multi-day spans) and date→tasks over a range.
+  function buildMaps(start: string, end: string) {
+    const evMap = new Map<string, CalendarEvent[]>()
+    for (const ev of events ?? []) {
+      for (const d of eventOccurrenceDays(ev, start, end)) {
+        const list = evMap.get(d)
+        if (list) list.push(ev)
+        else evMap.set(d, [ev])
+      }
+    }
+    const tkMap = new Map<string, Task[]>()
+    for (const t of tasks ?? []) {
+      if (t.dueDate! >= start && t.dueDate! <= end) {
+        const list = tkMap.get(t.dueDate!)
+        if (list) list.push(t)
+        else tkMap.set(t.dueDate!, [t])
+      }
+    }
+    return { evMap, tkMap }
+  }
 
-  // date → events touching that day (recurrence + multi-day spans), within grid
-  const eventsByDay = new Map<string, CalendarEvent[]>()
-  for (const ev of events ?? []) {
-    for (const d of eventOccurrenceDays(ev, gridStart, gridEnd)) {
-      const list = eventsByDay.get(d)
-      if (list) list.push(ev)
-      else eventsByDay.set(d, [ev])
-    }
-  }
-  const tasksByDay = new Map<string, Task[]>()
-  for (const t of tasks ?? []) {
-    if (t.dueDate! >= gridStart && t.dueDate! <= gridEnd) {
-      const list = tasksByDay.get(t.dueDate!)
-      if (list) list.push(t)
-      else tasksByDay.set(t.dueDate!, [t])
-    }
-  }
+  const gridDates = monthGridDates(monthAnchor)
+  const { evMap: eventsByDay, tkMap: tasksByDay } = buildMaps(
+    gridDates[0],
+    gridDates[gridDates.length - 1],
+  )
+
+  // The week/day time grid and its maps (built only for those views).
+  const weekDays = weekDates(addDays(selected, -parse(selected).getDay()))
+  const timeGridDays = view === 'week' ? weekDays : view === 'day' ? [selected] : []
+  const timeMaps =
+    timeGridDays.length > 0
+      ? buildMaps(timeGridDays[0], timeGridDays[timeGridDays.length - 1])
+      : { evMap: new Map<string, CalendarEvent[]>(), tkMap: new Map<string, Task[]>() }
 
   // Combined coloured items for a month cell (events first, then tasks).
   function cellItems(day: string): { color: string; label: string }[] {
@@ -173,6 +191,32 @@ export default function Calendar() {
     setMonthAnchor(monthStart(today))
     setSelected(today)
   }
+
+  // Week/day nav: shift the selected day (and keep the month anchor in step).
+  function shiftSelected(delta: number) {
+    const next = addDays(selected, delta)
+    setSelected(next)
+    setMonthAnchor(monthStart(next))
+  }
+
+  function navPrev() {
+    if (view === 'month') goMonth(-1)
+    else shiftSelected(view === 'week' ? -7 : -1)
+  }
+  function navNext() {
+    if (view === 'month') goMonth(1)
+    else shiftSelected(view === 'week' ? 7 : 1)
+  }
+  const navLabel =
+    view === 'week'
+      ? weekLabel(weekDays[0])
+      : view === 'day'
+        ? parse(selected).toLocaleDateString(undefined, {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+          })
+        : monthLabel(monthAnchor)
 
   // ---- agenda: occurrences from today through the horizon, grouped by day ----
   const agendaEnd = addDays(today, AGENDA_DAYS)
@@ -204,38 +248,54 @@ export default function Calendar() {
       <p className="screen-sub">Events and your dated tasks, all in one place.</p>
 
       <div className="chip-row seg-row">
-        <button
-          className={`chip${view === 'month' ? ' active' : ''}`}
-          onClick={() => setView('month')}
-        >
-          Month
-        </button>
-        <button
-          className={`chip${view === 'agenda' ? ' active' : ''}`}
-          onClick={() => setView('agenda')}
-        >
-          Agenda
-        </button>
+        {(['month', 'week', 'day', 'agenda'] as View[]).map((v) => (
+          <button
+            key={v}
+            className={`chip${view === v ? ' active' : ''}`}
+            onClick={() => setView(v)}
+          >
+            {v[0].toUpperCase() + v.slice(1)}
+          </button>
+        ))}
       </div>
 
       <button className="btn secondary" onClick={() => setEditingEvent({ date: selected })}>
         <CalendarPlus aria-hidden /> New event
       </button>
 
+      {view !== 'agenda' && (
+        <div className="week-nav">
+          <button className="icon-btn" aria-label="Previous" onClick={navPrev}>
+            <ChevronLeft aria-hidden />
+          </button>
+          <button className="week-label" onClick={goToday} title="Jump to today">
+            {navLabel}
+          </button>
+          <button className="icon-btn" aria-label="Next" onClick={navNext}>
+            <ChevronRight aria-hidden />
+          </button>
+        </div>
+      )}
+
+      {(view === 'week' || view === 'day') && (
+        <CalendarTimeGrid
+          days={timeGridDays}
+          today={today}
+          selected={selected}
+          eventsByDay={timeMaps.evMap}
+          tasksByDay={timeMaps.tkMap}
+          onSelectDay={(d) => {
+            setSelected(d)
+            if (view === 'week') setView('day')
+          }}
+          onEventOpen={(ev) => setEditingEvent({ event: ev })}
+          onTaskOpen={setEditingTask}
+          onSlotAdd={(d) => setEditingEvent({ date: d })}
+        />
+      )}
+
       {view === 'month' && (
         <>
-          <div className="week-nav">
-            <button className="icon-btn" aria-label="Previous month" onClick={() => goMonth(-1)}>
-              <ChevronLeft aria-hidden />
-            </button>
-            <button className="week-label" onClick={goToday} title="Jump to today">
-              {monthLabel(monthAnchor)}
-            </button>
-            <button className="icon-btn" aria-label="Next month" onClick={() => goMonth(1)}>
-              <ChevronRight aria-hidden />
-            </button>
-          </div>
-
           <div className="cal-grid cal-weekdays">
             {WEEKDAYS.map((d, i) => (
               <div key={i} className="cal-weekday">
