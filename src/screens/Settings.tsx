@@ -365,7 +365,7 @@ export default function Settings() {
 
       <div className="section-label">About</div>
       <div className="card">
-        <div className="tile-sub">Household Hub · v0.10.0</div>
+        <div className="tile-sub">Household Hub · v0.11.0</div>
       </div>
     </>
   )

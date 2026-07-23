@@ -232,3 +232,30 @@ export function eventDatesInRange(
   }
   return out
 }
+
+/**
+ * Every calendar day an event touches within [rangeStart, rangeEnd] —
+ * expanding recurrence and spreading each occurrence across its multi-day
+ * span (endDate). Used to place an event on every cell it covers.
+ */
+export function eventOccurrenceDays(
+  event: Pick<CalendarEvent, 'date' | 'endDate' | 'repeat'>,
+  rangeStart: string,
+  rangeEnd: string,
+): string[] {
+  const span =
+    event.endDate && event.endDate > event.date
+      ? Math.max(0, daysBetween(event.date, event.endDate))
+      : 0
+  // An occurrence starting up to `span` days before the window can still
+  // reach into it, so widen the start we scan from.
+  const starts = eventDatesInRange(event, addDays(rangeStart, -span), rangeEnd)
+  const days = new Set<string>()
+  for (const start of starts) {
+    for (let i = 0; i <= span; i++) {
+      const d = addDays(start, i)
+      if (d >= rangeStart && d <= rangeEnd) days.add(d)
+    }
+  }
+  return [...days]
+}

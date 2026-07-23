@@ -16,7 +16,7 @@ import {
   addDays,
   addMonths,
   dayHeading,
-  eventDatesInRange,
+  eventOccurrenceDays,
   formatTime,
   monthGridDates,
   monthLabel,
@@ -25,12 +25,30 @@ import {
   sameMonth,
   todayStr,
 } from '../dates'
+import { noteColorHex } from '../note-colors'
 import EventSheet from '../components/EventSheet'
 import TaskSheet from '../components/TaskSheet'
 import TaskRow from '../components/TaskRow'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 const AGENDA_DAYS = 60
+const TASK_COLOR = '#2563EB'
+
+/** An event's colour — its chosen palette colour, or the calendar red. */
+function eventColor(ev: CalendarEvent): string {
+  return noteColorHex(ev.color) ?? '#DC2626'
+}
+
+function rangeLabel(ev: CalendarEvent): string {
+  const s = parse(ev.date)
+  const e = parse(ev.endDate!)
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }
+  const end =
+    s.getMonth() === e.getMonth()
+      ? e.toLocaleDateString(undefined, { day: 'numeric' })
+      : e.toLocaleDateString(undefined, opts)
+  return `${s.toLocaleDateString(undefined, opts)} – ${end}`
+}
 
 /** Events sorted for display: all-day first, then by start time. */
 function sortEvents(evs: CalendarEvent[]): CalendarEvent[] {
@@ -47,13 +65,21 @@ function EventRow({ event, onOpen }: { event: CalendarEvent; onOpen: () => void 
     : event.endTime
       ? `${formatTime(event.startTime!)} – ${formatTime(event.endTime)}`
       : formatTime(event.startTime!)
+  const multiDay = event.endDate && event.endDate > event.date
   return (
     <button className="event-row" onClick={onOpen}>
+      <span className="event-stripe" style={{ background: eventColor(event) }} aria-hidden />
       <span className={`event-time${event.allDay ? ' all-day' : ''}`}>{time}</span>
       <span className="event-main">
         <span className="event-title">{event.title || 'Untitled event'}</span>
-        {(event.location || event.repeat !== 'none') && (
+        {(event.location || event.repeat !== 'none' || multiDay) && (
           <span className="event-sub">
+            {multiDay && (
+              <>
+                <CalendarRange aria-hidden />
+                {rangeLabel(event)}
+              </>
+            )}
             {event.repeat !== 'none' && <Repeat aria-label="Repeats" />}
             {event.location && (
               <>
@@ -104,20 +130,32 @@ export default function Calendar() {
   const gridStart = gridDates[0]
   const gridEnd = gridDates[gridDates.length - 1]
 
-  // date → events occurring that day, within the visible grid window
+  // date → events touching that day (recurrence + multi-day spans), within grid
   const eventsByDay = new Map<string, CalendarEvent[]>()
   for (const ev of events ?? []) {
-    for (const d of eventDatesInRange(ev, gridStart, gridEnd)) {
+    for (const d of eventOccurrenceDays(ev, gridStart, gridEnd)) {
       const list = eventsByDay.get(d)
       if (list) list.push(ev)
       else eventsByDay.set(d, [ev])
     }
   }
-  const taskCountByDay = new Map<string, number>()
+  const tasksByDay = new Map<string, Task[]>()
   for (const t of tasks ?? []) {
     if (t.dueDate! >= gridStart && t.dueDate! <= gridEnd) {
-      taskCountByDay.set(t.dueDate!, (taskCountByDay.get(t.dueDate!) ?? 0) + 1)
+      const list = tasksByDay.get(t.dueDate!)
+      if (list) list.push(t)
+      else tasksByDay.set(t.dueDate!, [t])
     }
+  }
+
+  // Combined coloured items for a month cell (events first, then tasks).
+  function cellItems(day: string): { color: string; label: string }[] {
+    const evs = sortEvents(eventsByDay.get(day) ?? []).map((ev) => ({
+      color: eventColor(ev),
+      label: ev.title || 'Event',
+    }))
+    const tks = (tasksByDay.get(day) ?? []).map((t) => ({ color: TASK_COLOR, label: t.title }))
+    return [...evs, ...tks]
   }
 
   const dayEvents = sortEvents(eventsByDay.get(selected) ?? [])
@@ -148,7 +186,7 @@ export default function Calendar() {
     return g
   }
   for (const ev of events ?? []) {
-    for (const d of eventDatesInRange(ev, today, agendaEnd)) ensure(d).events.push(ev)
+    for (const d of eventOccurrenceDays(ev, today, agendaEnd)) ensure(d).events.push(ev)
   }
   for (const t of tasks ?? []) {
     if (t.dueDate! >= today && t.dueDate! <= agendaEnd) ensure(t.dueDate!).tasks.push(t)
@@ -205,13 +243,11 @@ export default function Calendar() {
               </div>
             ))}
           </div>
-          <div className="cal-grid">
+          <div className="cal-grid cal-month">
             {gridDates.map((d) => {
-              const evCount = eventsByDay.get(d)?.length ?? 0
-              const tkCount = taskCountByDay.get(d) ?? 0
-              const dots: string[] = []
-              for (let i = 0; i < evCount && dots.length < 3; i++) dots.push('event')
-              for (let i = 0; i < tkCount && dots.length < 3; i++) dots.push('task')
+              const items = cellItems(d)
+              const shown = items.slice(0, 3)
+              const extra = items.length - shown.length
               return (
                 <button
                   key={d}
@@ -224,10 +260,17 @@ export default function Calendar() {
                   onClick={() => setSelected(d)}
                 >
                   <span className="cal-daynum">{parse(d).getDate()}</span>
-                  <span className="cal-dots">
-                    {dots.map((k, i) => (
-                      <span key={i} className={`cal-dot ${k}`} />
+                  <span className="cal-items">
+                    {shown.map((it, i) => (
+                      <span
+                        key={i}
+                        className="cal-item"
+                        style={{ '--ic': it.color } as React.CSSProperties}
+                      >
+                        <span className="cal-item-label">{it.label}</span>
+                      </span>
                     ))}
+                    {extra > 0 && <span className="cal-more">+{extra}</span>}
                   </span>
                 </button>
               )

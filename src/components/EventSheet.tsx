@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import Sheet from './Sheet'
-import { db, type CalendarEvent, type ReminderLead } from '../db'
+import { db, type CalendarEvent, type NoteColor, type ReminderLead } from '../db'
 import { addDays, todayStr } from '../dates'
 import { REMINDER_OPTIONS, reminderLabel } from '../reminder-data'
+import { NOTE_COLORS, noteColorHex } from '../note-colors'
 
 interface Props {
   event?: CalendarEvent
@@ -31,6 +32,8 @@ export default function EventSheet({ event, defaultDate, onClose }: Props) {
   const [notes, setNotes] = useState(event?.notes ?? '')
   const [reminderLead, setReminderLead] = useState<ReminderLead | undefined>(event?.reminderLead)
   const [repeat, setRepeat] = useState<CalendarEvent['repeat']>(event?.repeat ?? 'none')
+  const [endDate, setEndDate] = useState(event?.endDate ?? '')
+  const [color, setColor] = useState<NoteColor | undefined>(event?.color)
 
   const today = todayStr()
   const tomorrow = addDays(today, 1)
@@ -42,11 +45,13 @@ export default function EventSheet({ event, defaultDate, onClose }: Props) {
     const fields = {
       title: trimmed,
       date,
+      endDate: endDate && endDate > date ? endDate : undefined,
       allDay,
       startTime: allDay ? undefined : startTime,
       endTime: allDay || !endTime ? undefined : endTime,
       location: location.trim() || undefined,
       notes: notes.trim() || undefined,
+      color,
       reminderLead: allDay ? undefined : reminderLead,
       repeat,
     }
@@ -93,6 +98,24 @@ export default function EventSheet({ event, defaultDate, onClose }: Props) {
           value={date}
           onChange={(e) => setDate(e.target.value || today)}
           aria-label="Event date"
+        />
+      </div>
+
+      <div className="sheet-label">Until</div>
+      <div className="chip-row">
+        <button
+          className={`chip${!endDate || endDate <= date ? ' active' : ''}`}
+          onClick={() => setEndDate('')}
+        >
+          Same day
+        </button>
+        <input
+          type="date"
+          className={`chip date-chip${endDate && endDate > date ? ' active' : ''}`}
+          value={endDate}
+          min={date}
+          onChange={(e) => setEndDate(e.target.value)}
+          aria-label="Last day (for a multi-day event)"
         />
       </div>
 
@@ -162,6 +185,24 @@ export default function EventSheet({ event, defaultDate, onClose }: Props) {
           >
             {REPEAT_LABELS[r]}
           </button>
+        ))}
+      </div>
+
+      <div className="sheet-label">Color</div>
+      <div className="color-row">
+        <button
+          className={`color-swatch cal-default${!color ? ' active' : ''}`}
+          aria-label="Default"
+          onClick={() => setColor(undefined)}
+        />
+        {NOTE_COLORS.map((c) => (
+          <button
+            key={c}
+            className={`color-swatch${color === c ? ' active' : ''}`}
+            style={{ '--sw': noteColorHex(c) } as React.CSSProperties}
+            aria-label={c}
+            onClick={() => setColor(c)}
+          />
         ))}
       </div>
 

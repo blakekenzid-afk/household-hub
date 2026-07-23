@@ -114,11 +114,13 @@ export interface CalendarEvent {
   updatedAt?: number
   title: string
   date: string // YYYY-MM-DD, local — the (first) day it occurs
+  endDate?: string // YYYY-MM-DD, local — last day, for multi-day events
   allDay: boolean
   startTime?: string // HH:MM 24h, when not all-day
   endTime?: string // HH:MM 24h
   location?: string
   notes?: string
+  color?: NoteColor // shares the note palette; undefined = calendar red
   reminderLead?: ReminderLead
   repeat: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
   createdAt: number
