@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CalendarEvent, Task } from '../db'
-import { formatTime, hhmmToMinutes, parse } from '../dates'
+import { formatTime, hhmmToMinutes, minutesToHHMM, parse } from '../dates'
 import { noteColorHex } from '../note-colors'
+
+const SNAP_MIN = 15
 
 const HOUR_H = 44
 const DAY_H = 24 * HOUR_H
@@ -75,6 +77,7 @@ interface Props {
   onEventOpen: (ev: CalendarEvent) => void
   onTaskOpen: (task: Task) => void
   onSlotAdd: (day: string) => void
+  onReschedule: (ev: CalendarEvent, day: string, startTime: string) => void
 }
 
 export default function CalendarTimeGrid({
@@ -87,8 +90,19 @@ export default function CalendarTimeGrid({
   onEventOpen,
   onTaskOpen,
   onSlotAdd,
+  onReschedule,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [drag, setDrag] = useState<{
+    id: number
+    dx: number
+    dy: number
+  } | null>(null)
+  const dragInfo = useRef<{ ev: CalendarEvent; day: string; startMin: number; dur: number } | null>(
+    null,
+  )
+  const startPt = useRef<{ x: number; y: number } | null>(null)
+  const movedRef = useRef(false)
 
   // Open scrolled to ~7am rather than midnight.
   useEffect(() => {
@@ -164,29 +178,85 @@ export default function CalendarTimeGrid({
               <div
                 key={d}
                 className="tg-col"
+                data-day={d}
                 onClick={(e) => {
                   if (e.target === e.currentTarget) onSlotAdd(d)
                 }}
               >
-                {blocks.map((b, i) => (
-                  <button
-                    key={i}
-                    className="tg-event"
-                    style={
-                      {
-                        top: (b.top / 60) * HOUR_H,
-                        height: Math.max((b.height / 60) * HOUR_H - 2, 18),
-                        left: `${b.leftPct}%`,
-                        width: `calc(${b.widthPct}% - 2px)`,
-                        '--ic': eventColor(b.ev),
-                      } as React.CSSProperties
-                    }
-                    onClick={() => onEventOpen(b.ev)}
-                  >
-                    <span className="tg-event-title">{b.ev.title || 'Event'}</span>
-                    <span className="tg-event-time">{formatTime(b.ev.startTime!)}</span>
-                  </button>
-                ))}
+                {blocks.map((b, i) => {
+                  const isDragging = drag?.id === b.ev.id
+                  const draggable = b.ev.repeat === 'none'
+                  return (
+                    <button
+                      key={i}
+                      className={`tg-event${draggable ? ' draggable' : ''}`}
+                      style={
+                        {
+                          top: (b.top / 60) * HOUR_H,
+                          height: Math.max((b.height / 60) * HOUR_H - 2, 18),
+                          left: `${b.leftPct}%`,
+                          width: `calc(${b.widthPct}% - 2px)`,
+                          '--ic': eventColor(b.ev),
+                          transform: isDragging
+                            ? `translate(${drag!.dx}px, ${drag!.dy}px)`
+                            : undefined,
+                          zIndex: isDragging ? 5 : undefined,
+                          opacity: isDragging ? 0.9 : undefined,
+                        } as React.CSSProperties
+                      }
+                      onPointerDown={(e) => {
+                        if (!draggable) return
+                        e.currentTarget.setPointerCapture(e.pointerId)
+                        startPt.current = { x: e.clientX, y: e.clientY }
+                        movedRef.current = false
+                        dragInfo.current = { ev: b.ev, day: d, startMin: b.top, dur: b.height }
+                        setDrag({ id: b.ev.id, dx: 0, dy: 0 })
+                      }}
+                      onPointerMove={(e) => {
+                        if (!startPt.current || !dragInfo.current) return
+                        const dx = e.clientX - startPt.current.x
+                        const dy = e.clientY - startPt.current.y
+                        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) movedRef.current = true
+                        setDrag({ id: b.ev.id, dx, dy })
+                      }}
+                      onPointerUp={(e) => {
+                        const st = startPt.current
+                        const info = dragInfo.current
+                        startPt.current = null
+                        dragInfo.current = null
+                        setDrag(null)
+                        if (!st || !info || !movedRef.current) return
+                        const dy = e.clientY - st.y
+                        const minsDelta = Math.round(((dy / HOUR_H) * 60) / SNAP_MIN) * SNAP_MIN
+                        const newStart = Math.max(
+                          0,
+                          Math.min(1440 - info.dur, info.startMin + minsDelta),
+                        )
+                        let targetDay = info.day
+                        if (days.length > 1) {
+                          const el = e.currentTarget as HTMLElement
+                          const prev = el.style.pointerEvents
+                          el.style.pointerEvents = 'none'
+                          const under = document.elementFromPoint(e.clientX, e.clientY)
+                          el.style.pointerEvents = prev
+                          const col = under?.closest('[data-day]') as HTMLElement | null
+                          if (col?.dataset.day) targetDay = col.dataset.day
+                        }
+                        onReschedule(info.ev, targetDay, minutesToHHMM(newStart))
+                      }}
+                      onClick={() => {
+                        if (movedRef.current) {
+                          movedRef.current = false
+                          return
+                        }
+                        onEventOpen(b.ev)
+                      }}
+                    >
+                      <span className="tg-event-title">{b.ev.title || 'Event'}</span>
+                      <span className="tg-event-time">{formatTime(b.ev.startTime!)}</span>
+                    </button>
+                  )
+                })}
               </div>
             )
           })}

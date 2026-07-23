@@ -132,6 +132,12 @@ export function hhmmToMinutes(hhmm: string): number {
   return h * 60 + m
 }
 
+/** Minutes since midnight → "HH:MM" (wraps into 0–1439). */
+export function minutesToHHMM(mins: number): string {
+  const m = ((Math.round(mins) % 1440) + 1440) % 1440
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+}
+
 /** 24h "HH:MM" → locale-formatted time, e.g. "9:00 AM". */
 export function formatTime(hhmm: string): string {
   const [h, m] = hhmm.split(':').map(Number)

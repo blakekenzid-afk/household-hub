@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable, type Table } from 'dexie'
-import { addDays, nextOccurrence, todayStr } from './dates'
+import { addDays, daysBetween, hhmmToMinutes, minutesToHHMM, nextOccurrence, todayStr } from './dates'
 
 // Every record carries a device-independent sync identity (uuid) and a
 // last-modified timestamp (updatedAt, ms epoch) used for last-write-wins
@@ -436,6 +436,31 @@ export async function moveDumpToRecipe(itemId: number, text: string): Promise<nu
     await db.brainDump.update(itemId, { status: 'sorted', sortedTo: 'recipe' })
     return recipeId
   })
+}
+
+/**
+ * Move an event by drag: to a new day and/or start time, preserving its
+ * duration and multi-day span. Non-recurring events only (callers guard).
+ */
+export async function rescheduleEvent(
+  event: CalendarEvent,
+  newDate: string,
+  newStartTime?: string,
+): Promise<void> {
+  const changes: Partial<CalendarEvent> = {}
+  if (newDate !== event.date) {
+    const delta = daysBetween(event.date, newDate)
+    changes.date = newDate
+    if (event.endDate) changes.endDate = addDays(event.endDate, delta)
+  }
+  if (!event.allDay && event.startTime && newStartTime && newStartTime !== event.startTime) {
+    changes.startTime = newStartTime
+    if (event.endTime) {
+      const shift = hhmmToMinutes(newStartTime) - hhmmToMinutes(event.startTime)
+      changes.endTime = minutesToHHMM(hhmmToMinutes(event.endTime) + shift)
+    }
+  }
+  if (Object.keys(changes).length) await db.events.update(event.id, changes)
 }
 
 /** Triage a brain dump item into a new all-day event today. Returns the new event id. */

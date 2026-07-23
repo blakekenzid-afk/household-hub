@@ -11,7 +11,7 @@ import {
   Repeat,
 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type CalendarEvent, type Task } from '../db'
+import { db, rescheduleEvent, type CalendarEvent, type Task } from '../db'
 import {
   addDays,
   addMonths,
@@ -291,6 +291,7 @@ export default function Calendar() {
           onEventOpen={(ev) => setEditingEvent({ event: ev })}
           onTaskOpen={setEditingTask}
           onSlotAdd={(d) => setEditingEvent({ date: d })}
+          onReschedule={(ev, day, startTime) => void rescheduleEvent(ev, day, startTime)}
         />
       )}
 

@@ -2318,6 +2318,16 @@ button {
   flex-direction: column;
 }
 
+/* Draggable event blocks: don't let a vertical drag scroll the grid. */
+.tg-event.draggable {
+  touch-action: none;
+  cursor: grab;
+}
+
+.tg-event.draggable:active {
+  cursor: grabbing;
+}
+
 .tg-event-title {
   font-size: 11px;
   font-weight: 600;
