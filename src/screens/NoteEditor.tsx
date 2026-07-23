@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Check, ChevronLeft, Folder, Pin, Trash2, X } from 'lucide-react'
+import { Check, ChevronLeft, Folder, Palette, Pin, Trash2, X } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type ChecklistItem } from '../db'
+import { db, type ChecklistItem, type NoteColor } from '../db'
+import { NOTE_COLORS, noteColorHex } from '../note-colors'
 import Sheet from '../components/Sheet'
 
 export default function NoteEditor() {
@@ -23,8 +24,10 @@ export default function NoteEditor() {
   const [items, setItems] = useState<ChecklistItem[]>([])
   const [pinned, setPinned] = useState<0 | 1>(0)
   const [folderId, setFolderId] = useState<number | undefined>(undefined)
+  const [color, setColor] = useState<NoteColor | undefined>(undefined)
   const [newItem, setNewItem] = useState('')
   const [folderPickerOpen, setFolderPickerOpen] = useState(false)
+  const [colorPickerOpen, setColorPickerOpen] = useState(false)
 
   useEffect(() => {
     if (note && !loaded) {
@@ -33,6 +36,7 @@ export default function NoteEditor() {
       setItems(note.items ?? [])
       setPinned(note.pinned)
       setFolderId(note.folderId)
+      setColor(note.color)
       setLoaded(true)
     }
   }, [note, loaded])
@@ -77,6 +81,12 @@ export default function NoteEditor() {
     setFolderId(fid)
     setFolderPickerOpen(false)
     await db.notes.update(id, { folderId: fid })
+  }
+
+  async function pickColor(c: NoteColor | undefined) {
+    setColor(c)
+    setColorPickerOpen(false)
+    await db.notes.update(id, { color: c })
   }
 
   async function remove() {
@@ -130,6 +140,14 @@ export default function NoteEditor() {
             onClick={() => void togglePin()}
           >
             <Pin aria-hidden />
+          </button>
+          <button
+            className="icon-btn"
+            aria-label="Note color"
+            onClick={() => setColorPickerOpen(true)}
+            style={color ? { color: noteColorHex(color) } : undefined}
+          >
+            <Palette aria-hidden />
           </button>
           <button
             className="icon-btn"
@@ -211,6 +229,27 @@ export default function NoteEditor() {
             </button>
           )}
         </div>
+      )}
+
+      {colorPickerOpen && (
+        <Sheet title="Color" onClose={() => setColorPickerOpen(false)}>
+          <div className="color-row">
+            <button
+              className={`color-swatch none${!color ? ' active' : ''}`}
+              aria-label="No color"
+              onClick={() => void pickColor(undefined)}
+            />
+            {NOTE_COLORS.map((c) => (
+              <button
+                key={c}
+                className={`color-swatch${color === c ? ' active' : ''}`}
+                style={{ '--sw': noteColorHex(c) } as React.CSSProperties}
+                aria-label={c}
+                onClick={() => void pickColor(c)}
+              />
+            ))}
+          </div>
+        </Sheet>
       )}
 
       {folderPickerOpen && (

@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable, type Table } from 'dexie'
-import { nextOccurrence, todayStr } from './dates'
+import { addDays, nextOccurrence, todayStr } from './dates'
 
 // Every record carries a device-independent sync identity (uuid) and a
 // last-modified timestamp (updatedAt, ms epoch) used for last-write-wins
@@ -32,6 +32,7 @@ export interface Task {
   dueDate?: string // YYYY-MM-DD, local
   dueTime?: string // HH:MM 24h, optional time-of-day for the due date
   reminderLead?: ReminderLead
+  subtasks?: ChecklistItem[]
   priority: 'none' | 'low' | 'medium' | 'high'
   repeat: 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly'
   createdAt: number
@@ -44,6 +45,16 @@ export interface ChecklistItem {
   done: boolean
 }
 
+export type NoteColor =
+  | 'red'
+  | 'orange'
+  | 'yellow'
+  | 'green'
+  | 'teal'
+  | 'blue'
+  | 'purple'
+  | 'pink'
+
 export interface Note {
   id: number
   uuid?: string
@@ -52,6 +63,7 @@ export interface Note {
   body?: string
   items?: ChecklistItem[]
   folderId?: number
+  color?: NoteColor
   pinned: 0 | 1
   createdAt: number
   updatedAt: number
@@ -315,6 +327,12 @@ export async function toggleTask(task: Task): Promise<void> {
           dueDate: nextOccurrence(task.dueDate, task.repeat),
           dueTime: task.dueTime,
           reminderLead: task.reminderLead,
+          // Fresh, unchecked copy of the steps for the next occurrence.
+          subtasks: task.subtasks?.map((s) => ({
+            id: crypto.randomUUID(),
+            text: s.text,
+            done: false,
+          })),
           priority: task.priority,
           repeat: task.repeat,
           createdAt: Date.now(),
@@ -324,6 +342,16 @@ export async function toggleTask(task: Task): Promise<void> {
   } else {
     await db.tasks.update(task.id, { status: 'open', completedAt: undefined })
   }
+}
+
+/**
+ * Push an unfinished task to the next day. Overdue or due-today tasks land
+ * tomorrow; a future task shifts a day. No-op without a due date.
+ */
+export async function bumpTaskToNextDay(task: Task): Promise<void> {
+  if (!task.dueDate) return
+  const base = task.dueDate < todayStr() ? todayStr() : task.dueDate
+  await db.tasks.update(task.id, { dueDate: addDays(base, 1) })
 }
 
 /** Triage a brain dump item into a task. Returns the new task id. */

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Note } from '../db'
+import { noteColorHex } from '../note-colors'
 import { relativeTime } from '../time'
 import Sheet from '../components/Sheet'
 
@@ -179,10 +180,12 @@ export default function Notes() {
             folderId === 'all' && n.folderId
               ? folders?.find((f) => f.id === n.folderId)
               : undefined
+          const nc = noteColorHex(n.color)
           return (
             <button
               key={n.id}
-              className="card note-card tappable"
+              className={`card note-card tappable${nc ? ' colored' : ''}`}
+              style={nc ? ({ '--nc': nc } as React.CSSProperties) : undefined}
               onClick={() => navigate(`/apps/notes/${n.id}`)}
             >
               <div className="note-card-head">

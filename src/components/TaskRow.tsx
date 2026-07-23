@@ -1,5 +1,5 @@
-import { Bell, Check, Flag, Repeat } from 'lucide-react'
-import { toggleTask, type Task } from '../db'
+import { Bell, Check, ChevronsRight, Flag, ListChecks, Repeat } from 'lucide-react'
+import { bumpTaskToNextDay, toggleTask, type Task } from '../db'
 import { dueLabel, formatTime } from '../dates'
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -39,12 +39,19 @@ export default function TaskRow({ task, onOpen, showDue = true }: Props) {
           task.priority !== 'none' ||
           task.repeat !== 'none' ||
           task.reminderLead != null ||
+          (task.subtasks && task.subtasks.length > 0) ||
           task.notes) && (
           <div className="task-meta">
             {due && !done && (
               <span className={`due ${due.tone}`}>
                 {due.text}
                 {task.dueTime ? ` · ${formatTime(task.dueTime)}` : ''}
+              </span>
+            )}
+            {task.subtasks && task.subtasks.length > 0 && (
+              <span className="subtask-count">
+                <ListChecks aria-hidden />
+                {task.subtasks.filter((s) => s.done).length}/{task.subtasks.length}
               </span>
             )}
             {task.reminderLead != null && !done && <Bell aria-label="Reminder set" />}
@@ -60,6 +67,16 @@ export default function TaskRow({ task, onOpen, showDue = true }: Props) {
           </div>
         )}
       </div>
+      {!done && task.dueDate && (
+        <button
+          className="task-bump"
+          aria-label="Move to next day"
+          title="Move to next day"
+          onClick={() => void bumpTaskToNextDay(task)}
+        >
+          <ChevronsRight aria-hidden />
+        </button>
+      )}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { Check, X } from 'lucide-react'
 import Sheet from './Sheet'
-import { db, type ReminderLead, type Task } from '../db'
+import { db, type ChecklistItem, type ReminderLead, type Task } from '../db'
 import { addDays, todayStr } from '../dates'
 import { REMINDER_OPTIONS, reminderLabel } from '../reminder-data'
 
@@ -36,6 +37,8 @@ export default function TaskSheet({ task, onClose }: Props) {
   const [reminderLead, setReminderLead] = useState<ReminderLead | undefined>(task?.reminderLead)
   const [priority, setPriority] = useState<Task['priority']>(task?.priority ?? 'none')
   const [repeat, setRepeat] = useState<Task['repeat']>(task?.repeat ?? 'none')
+  const [subtasks, setSubtasks] = useState<ChecklistItem[]>(task?.subtasks ?? [])
+  const [newSub, setNewSub] = useState('')
 
   const today = todayStr()
   const tomorrow = addDays(today, 1)
@@ -52,6 +55,7 @@ export default function TaskSheet({ task, onClose }: Props) {
       dueDate,
       dueTime: dueDate ? dueTime : undefined,
       reminderLead: dueDate && dueTime ? reminderLead : undefined,
+      subtasks: subtasks.length ? subtasks : undefined,
       priority,
       repeat: dueDate ? repeat : ('none' as const),
     }
@@ -67,6 +71,22 @@ export default function TaskSheet({ task, onClose }: Props) {
     if (!task) return
     await db.tasks.delete(task.id)
     onClose()
+  }
+
+  function toggleSub(id: string) {
+    setSubtasks((prev) => prev.map((s) => (s.id === id ? { ...s, done: !s.done } : s)))
+  }
+  function editSub(id: string, text: string) {
+    setSubtasks((prev) => prev.map((s) => (s.id === id ? { ...s, text } : s)))
+  }
+  function removeSub(id: string) {
+    setSubtasks((prev) => prev.filter((s) => s.id !== id))
+  }
+  function addSub() {
+    const text = newSub.trim()
+    if (!text) return
+    setSubtasks((prev) => [...prev, { id: crypto.randomUUID(), text, done: false }])
+    setNewSub('')
   }
 
   return (
@@ -178,6 +198,55 @@ export default function TaskSheet({ task, onClose }: Props) {
             {PRIORITY_LABELS[p]}
           </button>
         ))}
+      </div>
+
+      <div className="sheet-label">
+        Subtasks
+        {subtasks.length > 0 && (
+          <span className="label-count">
+            {subtasks.filter((s) => s.done).length}/{subtasks.length}
+          </span>
+        )}
+      </div>
+      <div className="cl-list">
+        {subtasks.map((s) => (
+          <div key={s.id} className="cl-item">
+            <button
+              className={`check${s.done ? ' done' : ''}`}
+              onClick={() => toggleSub(s.id)}
+              aria-label={s.done ? 'Uncheck' : 'Check'}
+            >
+              <Check aria-hidden />
+            </button>
+            <input
+              className={`cl-text${s.done ? ' done' : ''}`}
+              value={s.text}
+              onChange={(e) => editSub(s.id, e.target.value)}
+            />
+            <button
+              className="icon-btn subtle"
+              aria-label="Remove subtask"
+              onClick={() => removeSub(s.id)}
+            >
+              <X aria-hidden />
+            </button>
+          </div>
+        ))}
+        <form
+          className="cl-add"
+          onSubmit={(e) => {
+            e.preventDefault()
+            addSub()
+          }}
+        >
+          <span className="cl-add-ring" aria-hidden />
+          <input
+            className="cl-text"
+            placeholder="Add a step…"
+            value={newSub}
+            onChange={(e) => setNewSub(e.target.value)}
+          />
+        </form>
       </div>
 
       <div className="sheet-label">Notes</div>
